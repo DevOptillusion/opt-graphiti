@@ -67,7 +67,9 @@ logger = logging.getLogger(__name__)
 
 async def search(
     clients: GraphitiClients,
+    query_node: EntityNode | None,
     query: str,
+    query_entity_type: list[str] | None,
     group_ids: list[str] | None,
     config: SearchConfig,
     search_filter: SearchFilters,
@@ -132,6 +134,8 @@ async def search(
             driver,
             cross_encoder,
             query,
+            query_node,
+            query_entity_type,
             search_vector,
             group_ids,
             config.node_config,
@@ -309,6 +313,8 @@ async def node_search(
     driver: GraphDriver,
     cross_encoder: CrossEncoderClient,
     query: str,
+    query_node: EntityNode | None,
+    query_entity_type: list[str] | None,
     query_vector: list[float],
     group_ids: list[str] | None,
     config: NodeSearchConfig | None,
@@ -325,13 +331,14 @@ async def node_search(
     search_tasks = []
     if NodeSearchMethod.bm25 in config.search_methods:
         search_tasks.append(
-            node_fulltext_search(driver, query, search_filter, group_ids, 2 * limit)
+            node_fulltext_search(driver, query_node,query, query_entity_type, search_filter, group_ids, 2 * limit)
         )
     if NodeSearchMethod.cosine_similarity in config.search_methods:
         search_tasks.append(
             node_similarity_search(
                 driver,
                 query_vector,
+                query_entity_type,
                 search_filter,
                 group_ids,
                 2 * limit,

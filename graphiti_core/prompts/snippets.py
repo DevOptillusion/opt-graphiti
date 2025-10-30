@@ -17,7 +17,8 @@ limitations under the License.
 summary_instructions = """Guidelines:
         1. Output only factual content. Never explain what you're doing, why, or mention limitations/constraints. 
         2. Only use the provided messages, entity, and entity context to set attribute values.
-        3. Keep the summary concise and to the point. STATE FACTS DIRECTLY IN UNDER 250 CHARACTERS.
+        3. Keep the summary concise and to the point. STATE FACTS DIRECTLY IN UNDER 100 WORDS.
+        4. Please output in Chinese.
 
         Example summaries:
         BAD: "This is the only activity in the context. The user listened to this song. No other details were provided to include in this summary."

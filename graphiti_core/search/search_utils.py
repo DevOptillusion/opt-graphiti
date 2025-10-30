@@ -61,7 +61,7 @@ from graphiti_core.search.search_filters import (
 logger = logging.getLogger(__name__)
 
 RELEVANT_SCHEMA_LIMIT = 10
-DEFAULT_MIN_SCORE = 0.6
+DEFAULT_MIN_SCORE = 0.8 # change to 0.8 from default 0.6
 DEFAULT_MMR_LAMBDA = 0.5
 MAX_SEARCH_DEPTH = 3
 MAX_QUERY_LENGTH = 128
@@ -132,7 +132,7 @@ async def get_mentioned_nodes(
 
     records, _, _ = await driver.execute_query(
         """
-        MATCH (episode:Episodic)-[:MENTIONS]->(n:Entity)
+        MATCH (episode:Episodic)-[:MENTIONS]->(n)
         WHERE episode.uuid IN $uuids
         RETURN DISTINCT
         """
@@ -153,7 +153,7 @@ async def get_communities_by_nodes(
 
     records, _, _ = await driver.execute_query(
         """
-        MATCH (c:Community)-[:HAS_MEMBER]->(m:Entity)
+        MATCH (c:Community)-[:HAS_MEMBER]->(m)
         WHERE m.uuid IN $uuids
         RETURN DISTINCT
         """
@@ -187,7 +187,7 @@ async def edge_fulltext_search(
 
     match_query = """
     YIELD relationship AS rel, score
-    MATCH (n:Entity)-[e:RELATES_TO {uuid: rel.uuid}]->(m:Entity)
+    MATCH (n)-[e:RELATES_TO {uuid: rel.uuid}]->(m)
     """
     if driver.provider == GraphProvider.KUZU:
         match_query = """
@@ -555,7 +555,9 @@ async def edge_bfs_search(
 
 async def node_fulltext_search(
     driver: GraphDriver,
+    query_node: EntityNode | None,
     query: str,
+    query_entity_type: list[str] | None,
     search_filter: SearchFilters,
     group_ids: list[str] | None = None,
     limit=RELEVANT_SCHEMA_LIMIT,
@@ -567,12 +569,23 @@ async def node_fulltext_search(
 
     # BM25 search to get top nodes
     fuzzy_query = fulltext_query(query, group_ids, driver)
+
+    # only use the query string to pass into the cypher query code
+    fuzzy_query = query
     if fuzzy_query == '':
         return []
 
     filter_queries, filter_params = node_search_filter_query_constructor(
         search_filter, driver.provider
     )
+
+    # removed: WHERE n:Entity AND n.group_id IN $group_ids
+
+    # Debug: Check what get_nodes_query returns
+    # nodes_query_part = get_nodes_query(driver.provider, 'node_name_and_summary', '$query')
+    # print(f"[DEBUG] get_nodes_query returned: {nodes_query_part}")
+    print(f"[DEBUG] group_ids filter: {group_ids}")
+    print(f"[DEBUG] full fuzzy_query: {fuzzy_query}")
 
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
@@ -618,37 +631,131 @@ async def node_fulltext_search(
         else:
             return []
     else:
-        query = (
-            get_nodes_query(
-                'node_name_and_summary', '$query', limit=limit, provider=driver.provider
+        # assume only one label for each node
+        label = query_entity_type[0] if query_entity_type else None
+        # search_index = f"{label.lower()}_search"
+        min_score = DEFAULT_MIN_SCORE
+        if label == "Person":
+            cypher_query = (
+                    'CALL db.index.fulltext.queryNodes("person_search", $query)'
+                    + """
+                    YIELD node AS n, score
+                    """
+                    + filter_query
+                    + f"""
+                    WHERE score > {min_score}
+                    WITH n, score
+                    ORDER BY score DESC
+                    LIMIT $limit
+                    RETURN score,
+                    """
+                    + ENTITY_NODE_RETURN
             )
-            + yield_query
-            + filter_query
-            + """
-            WITH n, score
-            ORDER BY score DESC
-            LIMIT $limit
-            RETURN
-            """
-            + get_entity_node_return_query(driver.provider)
-        )
+            print("[DEBUG] Person fulltext search")
+        elif label == "RelationshipView":
+            cypher_query = (
+                    'CALL db.index.fulltext.queryNodes("relationship_view_search", $query)'
+                    + """
+                    YIELD node AS n, score
+                    """
+                    + filter_query
+                    + f"""
+                    WHERE score > {min_score}
+                    WITH n, score
+                    ORDER BY score DESC
+                    LIMIT $limit
+                    RETURN score,
+                    """
+                    + ENTITY_NODE_RETURN
+            )
+            print("[DEBUG] RelationshipView fulltext search")
+        elif label == 'Preference':
+            cypher_query = (
+                    'CALL db.index.fulltext.queryNodes("preference_search", $query)'
+                    + """
+                    YIELD node AS n, score
+                    """
+                    + filter_query
+                    + """
+                    WITH n, score
+                    ORDER BY score DESC
+                    LIMIT $limit
+                    RETURN
+                    """
+                    + ENTITY_NODE_RETURN
+            )
+        # If a specific label is provided, search only on the name field for custom types
+        elif label:
+            # Use a direct MATCH query to search only on the name field for custom types
+            group_filter_query = 'WHERE n.group_id IS NOT NULL'
+            if group_ids is not None:
+                group_filter_query += ' AND n.group_id IN $group_ids'
+            # disable group_id filter (search across all groups-episodes)
+            cypher_query = (
+                    """
+                    MATCH (n:"""
+                    + label
+                    + """)
+                    """
+                    + filter_query
+                    + """
+                    WHERE n.name = $query
+                    LIMIT $limit
+                    RETURN
+                    """
+                    + ENTITY_NODE_RETURN
+            )
+            print("[DEBUG] Custom name-only search")
+            # print(f"[DEBUG] Custom name-only search query: {cypher_query}")
+            # print(f"[DEBUG] Query parameters: query='{query}', group_ids={group_ids}, limit={limit}")
+        else:
+            # Use the standard fulltext index for general Entity search # usually not used for custom node types
+            cypher_query = (
+                    'CALL db.index.fulltext.queryNodes("node_name_and_summary", $query)'
+                    + """
+                    YIELD node AS n, score
+                    """
+                    + filter_query
+                    + """
+                    WITH n, score
+                    ORDER BY score DESC
+                    LIMIT $limit
+                    RETURN
+                    """
+                    + ENTITY_NODE_RETURN
+            )
+            print("[DEBUG] Standard fulltext search")
+            # print(f"[DEBUG] Standard fulltext search query: {cypher_query}")
+            # print(f"[DEBUG] Query parameters: query='{fuzzy_query}', group_ids={group_ids}, limit={limit}")
 
         records, _, _ = await driver.execute_query(
-            query,
+            cypher_query,
             query=fuzzy_query,
+            group_ids=group_ids,
             limit=limit,
             routing_='r',
             **filter_params,
         )
+        print(f"[DEBUG] full_text_search Records for {query}")
+        for record in records:
+            print(f"--[DEBUG] {record[0]}, {record[2]}")
+            # break
 
-    nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
+        nodes = [get_entity_node_from_record(record) for record in records]
+        print(f"[DEBUG] Found {len(nodes)} nodes from search")
 
-    return nodes
+        # If no results from fulltext search, try fallback search
+        if not nodes:
+            print("[DEBUG] No results from fulltext search, trying fallback...")
+            return await node_fallback_search_custom(driver, query, query_entity_type, search_filter, group_ids, limit)
+
+        return nodes
 
 
 async def node_similarity_search(
     driver: GraphDriver,
     search_vector: list[float],
+    query_entity_type: list[str] | None,
     search_filter: SearchFilters,
     group_ids: list[str] | None = None,
     limit=RELEVANT_SCHEMA_LIMIT,

@@ -11,7 +11,7 @@ from graphiti_core.driver.driver import GraphProvider
 
 # Mapping from Neo4j fulltext index names to FalkorDB node labels
 NEO4J_TO_FALKORDB_MAPPING = {
-    'node_name_and_summary': 'Entity',
+    'node_name_and_summary': ['Person', 'Trait', 'Preference', 'RelationshipView', 'Belief', 'MemoryNote', 'EpisodeSummary'],
     'community_name': 'Community',
     'episode_content': 'Episodic',
     'edge_name_and_fact': 'RELATES_TO',

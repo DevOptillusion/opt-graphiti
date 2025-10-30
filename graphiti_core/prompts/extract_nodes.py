@@ -166,7 +166,7 @@ Guidelines:
 
 
 def extract_text(context: dict[str, Any]) -> list[Message]:
-    sys_prompt = """You are an AI assistant that extracts entity nodes from text. 
+    sys_prompt = """You are an AI assistant that extracts entity nodes from an act, usually contains ~50 lines of dialogues.
     Your primary task is to extract and classify the speaker and other significant entities mentioned in the provided text."""
 
     user_prompt = f"""
@@ -185,10 +185,14 @@ Indicate the classified entity type by providing its entity_type_id.
 {context['custom_prompt']}
 
 Guidelines:
-1. Extract significant entities, concepts, or actors mentioned in the conversation.
-2. Avoid creating nodes for relationships or actions.
-3. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
-4. Be as explicit as possible in your node names, using full names and avoiding abbreviations.
+1. **Person Extraction**: if you see '你' as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person.Do not extract unimportant person with name like '路人甲','工作人员'。
+2. **RelationshipView Extraction**: Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they are in the act: 'Paris','Ruby'. Vice versa. Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
+3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
+4. **MemoryNote Extraction**: Must extract at least one MemoryNote from each act.
+5. Extract significant entities, concepts, or actors mentioned in the act.
+6. Avoid creating nodes for locations.
+7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
+8. Be as explicit as possible in your node names, using first names and avoiding abbreviations.
 """
     return [
         Message(role='system', content=sys_prompt),

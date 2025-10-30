@@ -184,6 +184,11 @@ async def add_nodes_and_edges_bulk_tx(
         else:
             entity_data.update(node.attributes or {})
 
+        print("[DEBUG] disabling label 'Entity' again in add_nodes_and_edges_bulk_tx()")
+        entity_data['labels'] = list(set(node.labels))
+        # entity_data['labels'] = list(set(node.labels + ['Entity']))
+        print("[DEBUG] entity_data['labels']: ", entity_data['labels'])
+
         nodes.append(entity_data)
 
     edges = []

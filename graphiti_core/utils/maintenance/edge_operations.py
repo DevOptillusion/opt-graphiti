@@ -142,6 +142,7 @@ async def extract_edges(
             group_id=group_id,
             prompt_name='extract_edges.edge',
         )
+        print("[DEBUG] edge llm_response: ", llm_response)
         edges_data = ExtractedEdges(**llm_response).edges
 
         context['extracted_facts'] = [edge_data.fact for edge_data in edges_data]

@@ -127,6 +127,8 @@ EPISODIC_NODE_RETURN_NEPTUNE = """
 
 
 def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: bool = False) -> str:
+    # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
+    print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_query()")
     match provider:
         case GraphProvider.FALKORDB:
             return f"""
@@ -167,9 +169,11 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
                 if not has_aoss
                 else ''
             )
+            # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
+            print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_query()")
             return (
                 f"""
-                MERGE (n:Entity {{uuid: $entity_data.uuid}})
+                MERGE (n {{uuid: $entity_data.uuid}})
                 SET n:{labels}
                 SET n = $entity_data
                 """
@@ -183,6 +187,8 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
 def get_entity_node_save_bulk_query(
     provider: GraphProvider, nodes: list[dict], has_aoss: bool = False
 ) -> str | Any:
+    # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
+    print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
     match provider:
         case GraphProvider.FALKORDB:
             queries = []
@@ -192,7 +198,7 @@ def get_entity_node_save_bulk_query(
                         (
                             f"""
                             UNWIND $nodes AS node
-                            MERGE (n:Entity {{uuid: node.uuid}})
+                            MERGE (n {{uuid: node.uuid}})
                             SET n:{label}
                             SET n = node
                             WITH n, node
@@ -234,6 +240,8 @@ def get_entity_node_save_bulk_query(
                 RETURN n.uuid AS uuid
             """
         case _:  # Neo4j
+            # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
+            print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
             save_embedding_query = (
                 'WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)'
                 if not has_aoss
@@ -242,7 +250,7 @@ def get_entity_node_save_bulk_query(
             return (
                 """
                     UNWIND $nodes AS node
-                    MERGE (n:Entity {uuid: node.uuid})
+                    MERGE (n {uuid: node.uuid})
                     SET n:$(node.labels)
                     SET n = node
                     """

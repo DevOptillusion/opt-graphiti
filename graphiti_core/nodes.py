@@ -320,6 +320,10 @@ class EpisodicNode(Node):
             'source': self.source.value,
         }
 
+        print("[DEBUG] disabling label 'Entity' again in EntityNode.save()")
+        # labels = ':'.join(self.labels + ['Entity'])
+        labels = ':'.join(self.labels)
+
         result = await driver.execute_query(
             get_episode_node_save_query(driver.provider), **episode_args
         )

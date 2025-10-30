@@ -165,6 +165,9 @@ def nodes(context: dict[str, Any]) -> list[Message]:
         - They are related but distinct.
         - They have similar names or purposes but refer to separate instances or concepts.
 
+        if the ENTITY is a Person, please mark it as a duplicate of the EXISTING ENTITIES if the ENTITY can be the first name of the EXISTING ENTITIES, or the EXISTING ENTITIES can be the first name of the ENTITY.
+        For example, "Aria" and "Aria Westcott" are the same person.
+
         Task:
         ENTITIES contains {len(context['extracted_nodes'])} entities with IDs 0 through {len(context['extracted_nodes']) - 1}.
         Your response MUST include EXACTLY {len(context['extracted_nodes'])} resolutions with IDs 0 through {len(context['extracted_nodes']) - 1}. Do not skip or add IDs.
