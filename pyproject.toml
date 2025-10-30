@@ -1,5 +1,5 @@
 [project]
-name = "graphiti-core"
+name = "opt-graphiti-core"
 description = "A temporal graph building library"
 version = "0.22.1pre2"
 authors = [
