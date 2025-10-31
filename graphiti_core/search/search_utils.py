@@ -766,13 +766,20 @@ async def node_similarity_search(
             driver, search_vector, search_filter, group_ids, limit, min_score
         )
 
+    # assume only one label for each node
+    label = query_entity_type[0] if query_entity_type else None
+    # search_index = f"{label.lower()}_search"
+
     filter_queries, filter_params = node_search_filter_query_constructor(
         search_filter, driver.provider
     )
 
-    if group_ids is not None:
-        filter_queries.append('n.group_id IN $group_ids')
-        filter_params['group_ids'] = group_ids
+    if label == "Person":
+        pass
+    else:
+        if group_ids is not None:
+            filter_queries.append('n.group_id IN $group_ids')
+            filter_params['group_ids'] = group_ids
 
     filter_query = ''
     if filter_queries:
@@ -839,16 +846,16 @@ async def node_similarity_search(
             return []
     else:
         query = (
+            f"""
+            MATCH (n:{label})
             """
-                                                                                                                                    MATCH (n:Entity)
-                                                                                                                                    """
             + filter_query
             + """
             WITH n, """
             + get_vector_cosine_func_query('n.name_embedding', search_vector_var, driver.provider)
             + """ AS score
             WHERE score > $min_score
-            RETURN
+            RETURN score,
             """
             + get_entity_node_return_query(driver.provider)
             + """
@@ -865,7 +872,10 @@ async def node_similarity_search(
             routing_='r',
             **filter_params,
         )
-
+    print(f"[DEBUG] similarity_search Records using query_vector")
+    for record in records:
+        print(f"--[DEBUG] {record[0]}, {record[2]}")
+        # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
     return nodes
@@ -878,6 +888,8 @@ async def node_bfs_search(
     bfs_max_depth: int,
     group_ids: list[str] | None = None,
     limit: int = RELEVANT_SCHEMA_LIMIT,
+    entity_labels: list[str] | None = None,
+    relationship_types: list[str] | None = None,
 ) -> list[EntityNode]:
     if bfs_origin_node_uuids is None or len(bfs_origin_node_uuids) == 0 or bfs_max_depth < 1:
         return []
@@ -885,6 +897,22 @@ async def node_bfs_search(
     filter_queries, filter_params = node_search_filter_query_constructor(
         search_filter, driver.provider
     )
+
+    # change MATCH (origin:Entity|Episodic {{uuid: origin_uuid}})-[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]->(n:Entity) to MATCH (origin:Episodic {{uuid: origin_uuid}})-[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]->(n)
+    print("[DEBUG] disable using label 'Entity' in node_bfs_search()")
+
+    # Build entity label filter
+    entity_label_filter = ""
+    if entity_labels:
+        label_conditions = " OR ".join([f"n:{label}" for label in entity_labels])
+        entity_label_filter = f"AND ({label_conditions})"
+
+    # Build relationship type filter
+    if relationship_types:
+        rel_conditions = "|".join([f":{rel_type}" for rel_type in relationship_types])
+        relationship_pattern = f"[{rel_conditions}*1..{bfs_max_depth}]"
+    else:
+        relationship_pattern = f"[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]"
 
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
@@ -898,8 +926,9 @@ async def node_bfs_search(
     match_queries = [
         f"""
         UNWIND $bfs_origin_node_uuids AS origin_uuid
-        MATCH (origin {{uuid: origin_uuid}})-[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]->(n:Entity)
+        MATCH (origin:{{uuid: origin_uuid}})-{relationship_pattern}->(n)
         WHERE n.group_id = origin.group_id
+         {entity_label_filter}
         """
     ]
 
@@ -1485,9 +1514,9 @@ async def get_relevant_edges(
     if driver.provider == GraphProvider.NEPTUNE:
         query = (
             """
-                                                                                                                                    UNWIND $edges AS edge
-                                                                                                                                    MATCH (n:Entity {uuid: edge.source_node_uuid})-[e:RELATES_TO {group_id: edge.group_id}]-(m:Entity {uuid: edge.target_node_uuid})
-                                                                                                                                    """
+            UNWIND $edges AS edge
+            MATCH (n:Entity {uuid: edge.source_node_uuid})-[e:RELATES_TO {group_id: edge.group_id}]-(m:Entity {uuid: edge.target_node_uuid})
+            """
             + filter_query
             + """
             WITH e, edge
@@ -1593,11 +1622,12 @@ async def get_relevant_edges(
                 """
             )
         else:
+            min_score = 0  # set default min score to 0.2 for testing search
             query = (
                 """
-                                                                                                                                        UNWIND $edges AS edge
-                                                                                                                                        MATCH (n:Entity {uuid: edge.source_node_uuid})-[e:RELATES_TO {group_id: edge.group_id}]-(m:Entity {uuid: edge.target_node_uuid})
-                                                                                                                                        """
+                UNWIND $edges AS edge
+                MATCH (n {uuid: edge.source_node_uuid})-[e]-(m {uuid: edge.target_node_uuid})
+                """
                 + filter_query
                 + """
                 WITH e, edge, """
@@ -1619,6 +1649,7 @@ async def get_relevant_edges(
                         group_id: e.group_id,
                         fact: e.fact,
                         fact_embedding: e.fact_embedding,
+                        score: score,
                         episodes: e.episodes,
                         expired_at: e.expired_at,
                         valid_at: e.valid_at,
@@ -1627,15 +1658,67 @@ async def get_relevant_edges(
                     })[..$limit] AS matches
                 """
             )
-
-        results, _, _ = await driver.execute_query(
-            query,
-            edges=[edge.model_dump() for edge in edges],
-            limit=limit,
-            min_score=min_score,
-            routing_='r',
-            **filter_params,
+        query = (
+                RUNTIME_QUERY
+                + """
+                UNWIND $edges AS edge
+                MATCH (n {uuid: edge.source_node_uuid})-[e]-(m {uuid: edge.target_node_uuid})
+                """
+                + filter_query
+                + """
+                WITH e, edge
+                RETURN edge.uuid AS search_edge_uuid,
+                    collect({
+                        uuid: e.uuid,
+                        source_node_uuid: startNode(e).uuid,
+                        target_node_uuid: endNode(e).uuid,
+                        created_at: e.created_at,
+                        name: e.name,
+                        group_id: e.group_id,
+                        fact: e.fact,
+                        has_embedding: e.fact_embedding IS NOT NULL,
+                        embedding_length: CASE WHEN e.fact_embedding IS NOT NULL THEN size(e.fact_embedding) ELSE 0 END,
+                        episodes: e.episodes,
+                        expired_at: e.expired_at,
+                        valid_at: e.valid_at,
+                        invalid_at: e.invalid_at,
+                        attributes: properties(e)
+                    })[..$limit] AS matches
+                """
         )
+        try:
+            results, _, _ = await driver.execute_query(
+                query,
+                edges=[edge.model_dump() for edge in edges],
+                limit=limit,
+                min_score=min_score,
+                routing_='r',
+                **filter_params,
+            )
+        except Exception as e:
+            print(f"[ERROR] Search query failed: {e}")
+            print(f"[ERROR] Query: {query}")
+            print(f"[ERROR] Parameters: {query_params}")
+            # Return empty results to continue execution
+            results = []
+
+            # Print scores for debugging
+        print(f"[DEBUG] Number of edges to search: {len(edges)}")
+        print(f"[DEBUG] Number of results: {len(results)}")
+
+        for result in results:
+            search_edge_uuid = result['search_edge_uuid']
+            matches = result['matches']
+            print(f"[DEBUG] Search edge {search_edge_uuid}: {len(matches)} matches")
+            if not matches:
+                print(f"[DEBUG] ❌ No matches found for {search_edge_uuid}")
+            else:
+                for match in matches:
+                    has_embedding = match.get('has_embedding', False)
+                    embedding_length = match.get('embedding_length', 0)
+                    fact = match.get('fact', 'N/A')
+                    print(
+                        f"[DEBUG] - Match: has_embedding={has_embedding}, embedding_length={embedding_length}, fact={fact[:50]}...")
 
     relevant_edges_dict: dict[str, list[EntityEdge]] = {
         result['search_edge_uuid']: [
@@ -2100,3 +2183,61 @@ async def get_embeddings_for_edges(
             embeddings_dict[uuid] = embedding
 
     return embeddings_dict
+
+
+async def node_fallback_search_custom(
+        driver: GraphDriver,
+        query: str,
+        query_entity_type: list[str] | None,
+        search_filter: SearchFilters,
+        group_ids: list[str] | None = None,
+        limit=RELEVANT_SCHEMA_LIMIT,
+) -> list[EntityNode]:
+    """Fallback search for custom node types when fulltext search is not available"""
+    print(f"[DEBUG] Using custom fallback search for query: '{query}'")
+
+    filter_query, filter_params = node_search_filter_query_constructor(search_filter)
+
+    # Build group filter
+    group_filter = ""
+    if group_ids:
+        group_filter = "AND n.group_id IN $group_ids"
+
+    label = query_entity_type[0] if query_entity_type else None
+    # Search across all your custom node types or specific label
+    if label:
+        # Search only within the specified label
+        match_pattern = f"MATCH (n:{label})"
+    else:
+        # Search across all custom node types
+        match_pattern = "MATCH (n:Person|Trait|Preference|RelationshipView|Belief|MemoryNote|EpisodeSummary)"
+    # disable group_id filter (search across all groups-episodes)
+    query_text = (
+            f"""
+        {match_pattern}
+        WHERE (n.name = $query)
+        """
+            + filter_query
+            + """
+        RETURN
+        """
+            + ENTITY_NODE_RETURN
+            + """
+        LIMIT $limit
+        """
+    )
+    print("[DEBUG] Custom fallback search")
+    # print(f"[DEBUG] Custom fallback query: {query_text}")
+
+    records, _, _ = await driver.execute_query(
+        query_text,
+        query=query,
+        group_ids=group_ids,
+        limit=limit,
+        routing_='r',
+        **filter_params,
+    )
+
+    nodes = [get_entity_node_from_record(record) for record in records]
+    print(f"[DEBUG] Custom fallback search found {len(nodes)} nodes")
+    return nodes
