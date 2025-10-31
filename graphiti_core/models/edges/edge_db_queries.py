@@ -29,6 +29,8 @@ EPISODIC_EDGE_SAVE = """
 """
 TODO: New added function
 """
+
+
 def get_episodic_edge_save_bulk_query(provider: GraphProvider) -> str:
     if provider == GraphProvider.KUZU:
         return """
@@ -62,7 +64,9 @@ EPISODIC_EDGE_RETURN = """
 """
 
 
-def get_entity_edge_save_query(provider: GraphProvider, has_aoss: bool = False, relationship_type: str = "RELATES_TO") -> str:
+def get_entity_edge_save_query(
+    provider: GraphProvider, has_aoss: bool = False, relationship_type: str = 'RELATES_TO'
+) -> str:
     # change MATCH (source:Entity {uuid: $edge_data.source_uuid}) to MATCH (source {uuid: $edge_data.source_uuid})
     print(f"[DEBUG] using relationship type '{relationship_type}' in get_entity_edge_save_query()")
 
@@ -126,18 +130,20 @@ def get_entity_edge_save_query(provider: GraphProvider, has_aoss: bool = False, 
             )
 
 
-def get_entity_edge_save_bulk_query(provider: GraphProvider, has_aoss: bool = False, relationship_type: str = "RELATES_TO") -> str:
+def get_entity_edge_save_bulk_query(
+    provider: GraphProvider, has_aoss: bool = False, relationship_type: str = 'RELATES_TO'
+) -> str:
     match provider:
         case GraphProvider.FALKORDB:
-            return f"""
+            return """
                 UNWIND $entity_edges AS edge
-                MATCH (source {{uuid: edge.source_node_uuid}})
-                MATCH (target {{uuid: edge.target_node_uuid}})
-                CALL apoc.merge.relationship(source, edge.name, {{
+                MATCH (source {uuid: edge.source_node_uuid})
+                MATCH (target {uuid: edge.target_node_uuid})
+                CALL apoc.merge.relationship(source, edge.name, {
                     uuid: edge.uuid,
                     source_node_uuid: edge.source_node_uuid,
                     target_node_uuid: edge.target_node_uuid
-                }}, {{
+                }, {
                     uuid: edge.uuid,
                     name: edge.name,
                     group_id: edge.group_id,
@@ -145,7 +151,7 @@ def get_entity_edge_save_bulk_query(provider: GraphProvider, has_aoss: bool = Fa
                     episodes: edge.episodes,
                     created_at: edge.created_at,
                     fact_embedding: vecf32(edge.fact_embedding)
-                }}, target) YIELD rel
+                }, target) YIELD rel
                 RETURN edge.uuid AS uuid
             """
         case GraphProvider.NEPTUNE:
@@ -184,22 +190,22 @@ def get_entity_edge_save_bulk_query(provider: GraphProvider, has_aoss: bool = Fa
                 else ''
             )
             return (
-                f"""
+                """
                     UNWIND $entity_edges AS edge
-                    MATCH (source {{uuid: edge.source_node_uuid}})
-                    MATCH (target {{uuid: edge.target_node_uuid}})
-                    CALL apoc.merge.relationship(source, edge.name, {{
+                    MATCH (source {uuid: edge.source_node_uuid})
+                    MATCH (target {uuid: edge.target_node_uuid})
+                    CALL apoc.merge.relationship(source, edge.name, {
                         uuid: edge.uuid,
                         source_node_uuid: edge.source_node_uuid,
                         target_node_uuid: edge.target_node_uuid
-                    }}, {{
+                    }, {
                         uuid: edge.uuid,
                         name: edge.name,
                         group_id: edge.group_id,
                         fact: edge.fact,
                         episodes: edge.episodes,
                         created_at: edge.created_at
-                    }}, target) YIELD rel
+                    }, target) YIELD rel
                     """
                 + save_embedding_query
                 + """

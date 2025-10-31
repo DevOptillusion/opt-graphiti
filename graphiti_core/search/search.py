@@ -331,7 +331,9 @@ async def node_search(
     search_tasks = []
     if NodeSearchMethod.bm25 in config.search_methods:
         search_tasks.append(
-            node_fulltext_search(driver, query_node,query, query_entity_type, search_filter, group_ids, 2 * limit)
+            node_fulltext_search(
+                driver, query_node, query, query_entity_type, search_filter, group_ids, 2 * limit
+            )
         )
     if NodeSearchMethod.cosine_similarity in config.search_methods:
         search_tasks.append(

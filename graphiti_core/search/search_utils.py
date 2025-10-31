@@ -61,7 +61,7 @@ from graphiti_core.search.search_filters import (
 logger = logging.getLogger(__name__)
 
 RELEVANT_SCHEMA_LIMIT = 10
-DEFAULT_MIN_SCORE = 0.8 # change to 0.8 from default 0.6
+DEFAULT_MIN_SCORE = 0.8  # change to 0.8 from default 0.6
 DEFAULT_MMR_LAMBDA = 0.5
 MAX_SEARCH_DEPTH = 3
 MAX_QUERY_LENGTH = 128
@@ -584,8 +584,8 @@ async def node_fulltext_search(
     # Debug: Check what get_nodes_query returns
     # nodes_query_part = get_nodes_query(driver.provider, 'node_name_and_summary', '$query')
     # print(f"[DEBUG] get_nodes_query returned: {nodes_query_part}")
-    print(f"[DEBUG] group_ids filter: {group_ids}")
-    print(f"[DEBUG] full fuzzy_query: {fuzzy_query}")
+    print(f'[DEBUG] group_ids filter: {group_ids}')
+    print(f'[DEBUG] full fuzzy_query: {fuzzy_query}')
 
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
@@ -595,9 +595,6 @@ async def node_fulltext_search(
     if filter_queries:
         filter_query = ' WHERE ' + (' AND '.join(filter_queries))
 
-    yield_query = 'YIELD node AS n, score'
-    if driver.provider == GraphProvider.KUZU:
-        yield_query = 'WITH node AS n, score'
 
     if driver.provider == GraphProvider.NEPTUNE:
         res = driver.run_aoss_query('node_name_and_summary', query, limit=limit)  # pyright: ignore reportAttributeAccessIssue
@@ -635,54 +632,54 @@ async def node_fulltext_search(
         label = query_entity_type[0] if query_entity_type else None
         # search_index = f"{label.lower()}_search"
         min_score = DEFAULT_MIN_SCORE
-        if label == "Person":
+        if label == 'Person':
             cypher_query = (
-                    'CALL db.index.fulltext.queryNodes("person_search", $query)'
-                    + """
+                'CALL db.index.fulltext.queryNodes("person_search", $query)'
+                + """
                     YIELD node AS n, score
                     """
-                    + filter_query
-                    + f"""
+                + filter_query
+                + f"""
                     WHERE score > {min_score}
                     WITH n, score
                     ORDER BY score DESC
                     LIMIT $limit
                     RETURN score,
                     """
-                    + ENTITY_NODE_RETURN
+                + get_entity_node_return_query(driver.provider)
             )
-            print("[DEBUG] Person fulltext search")
-        elif label == "RelationshipView":
+            print('[DEBUG] Person fulltext search')
+        elif label == 'RelationshipView':
             cypher_query = (
-                    'CALL db.index.fulltext.queryNodes("relationship_view_search", $query)'
-                    + """
+                'CALL db.index.fulltext.queryNodes("relationship_view_search", $query)'
+                + """
                     YIELD node AS n, score
                     """
-                    + filter_query
-                    + f"""
+                + filter_query
+                + f"""
                     WHERE score > {min_score}
                     WITH n, score
                     ORDER BY score DESC
                     LIMIT $limit
                     RETURN score,
                     """
-                    + ENTITY_NODE_RETURN
+                + get_entity_node_return_query(driver.provider)
             )
-            print("[DEBUG] RelationshipView fulltext search")
+            print('[DEBUG] RelationshipView fulltext search')
         elif label == 'Preference':
             cypher_query = (
-                    'CALL db.index.fulltext.queryNodes("preference_search", $query)'
-                    + """
+                'CALL db.index.fulltext.queryNodes("preference_search", $query)'
+                + """
                     YIELD node AS n, score
                     """
-                    + filter_query
-                    + """
+                + filter_query
+                + """
                     WITH n, score
                     ORDER BY score DESC
                     LIMIT $limit
                     RETURN
                     """
-                    + ENTITY_NODE_RETURN
+                + get_entity_node_return_query(driver.provider)
             )
         # If a specific label is provided, search only on the name field for custom types
         elif label:
@@ -692,39 +689,39 @@ async def node_fulltext_search(
                 group_filter_query += ' AND n.group_id IN $group_ids'
             # disable group_id filter (search across all groups-episodes)
             cypher_query = (
-                    """
+                """
                     MATCH (n:"""
-                    + label
-                    + """)
+                + label
+                + """)
                     """
-                    + filter_query
-                    + """
+                + filter_query
+                + """
                     WHERE n.name = $query
                     LIMIT $limit
                     RETURN
                     """
-                    + ENTITY_NODE_RETURN
+                + get_entity_node_return_query(driver.provider)
             )
-            print("[DEBUG] Custom name-only search")
+            print('[DEBUG] Custom name-only search')
             # print(f"[DEBUG] Custom name-only search query: {cypher_query}")
             # print(f"[DEBUG] Query parameters: query='{query}', group_ids={group_ids}, limit={limit}")
         else:
             # Use the standard fulltext index for general Entity search # usually not used for custom node types
             cypher_query = (
-                    'CALL db.index.fulltext.queryNodes("node_name_and_summary", $query)'
-                    + """
+                'CALL db.index.fulltext.queryNodes("node_name_and_summary", $query)'
+                + """
                     YIELD node AS n, score
                     """
-                    + filter_query
-                    + """
+                + filter_query
+                + """
                     WITH n, score
                     ORDER BY score DESC
                     LIMIT $limit
                     RETURN
                     """
-                    + ENTITY_NODE_RETURN
+                + get_entity_node_return_query(driver.provider)
             )
-            print("[DEBUG] Standard fulltext search")
+            print('[DEBUG] Standard fulltext search')
             # print(f"[DEBUG] Standard fulltext search query: {cypher_query}")
             # print(f"[DEBUG] Query parameters: query='{fuzzy_query}', group_ids={group_ids}, limit={limit}")
 
@@ -736,18 +733,20 @@ async def node_fulltext_search(
             routing_='r',
             **filter_params,
         )
-        print(f"[DEBUG] full_text_search Records for {query}")
+        print(f'[DEBUG] full_text_search Records for {query}')
         for record in records:
-            print(f"--[DEBUG] {record[0]}, {record[2]}")
+            print(f'--[DEBUG] {record[0]}, {record[2]}')
             # break
 
         nodes = [get_entity_node_from_record(record) for record in records]
-        print(f"[DEBUG] Found {len(nodes)} nodes from search")
+        print(f'[DEBUG] Found {len(nodes)} nodes from search')
 
         # If no results from fulltext search, try fallback search
         if not nodes:
-            print("[DEBUG] No results from fulltext search, trying fallback...")
-            return await node_fallback_search_custom(driver, query, query_entity_type, search_filter, group_ids, limit)
+            print('[DEBUG] No results from fulltext search, trying fallback...')
+            return await node_fallback_search_custom(
+                driver, query, query_entity_type, search_filter, group_ids, limit
+            )
 
         return nodes
 
@@ -774,7 +773,7 @@ async def node_similarity_search(
         search_filter, driver.provider
     )
 
-    if label == "Person":
+    if label == 'Person':
         pass
     else:
         if group_ids is not None:
@@ -872,9 +871,9 @@ async def node_similarity_search(
             routing_='r',
             **filter_params,
         )
-    print(f"[DEBUG] similarity_search Records using query_vector")
+    print('[DEBUG] similarity_search Records using query_vector')
     for record in records:
-        print(f"--[DEBUG] {record[0]}, {record[2]}")
+        print(f'--[DEBUG] {record[0]}, {record[2]}')
         # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
@@ -902,17 +901,17 @@ async def node_bfs_search(
     print("[DEBUG] disable using label 'Entity' in node_bfs_search()")
 
     # Build entity label filter
-    entity_label_filter = ""
+    entity_label_filter = ''
     if entity_labels:
-        label_conditions = " OR ".join([f"n:{label}" for label in entity_labels])
-        entity_label_filter = f"AND ({label_conditions})"
+        label_conditions = ' OR '.join([f'n:{label}' for label in entity_labels])
+        entity_label_filter = f'AND ({label_conditions})'
 
     # Build relationship type filter
     if relationship_types:
-        rel_conditions = "|".join([f":{rel_type}" for rel_type in relationship_types])
-        relationship_pattern = f"[{rel_conditions}*1..{bfs_max_depth}]"
+        rel_conditions = '|'.join([f':{rel_type}' for rel_type in relationship_types])
+        relationship_pattern = f'[{rel_conditions}*1..{bfs_max_depth}]'
     else:
-        relationship_pattern = f"[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]"
+        relationship_pattern = f'[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]'
 
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
@@ -1659,13 +1658,13 @@ async def get_relevant_edges(
                 """
             )
         query = (
-                RUNTIME_QUERY
-                + """
+            ""
+            + """
                 UNWIND $edges AS edge
                 MATCH (n {uuid: edge.source_node_uuid})-[e]-(m {uuid: edge.target_node_uuid})
                 """
-                + filter_query
-                + """
+            + filter_query
+            + """
                 WITH e, edge
                 RETURN edge.uuid AS search_edge_uuid,
                     collect({
@@ -1696,29 +1695,30 @@ async def get_relevant_edges(
                 **filter_params,
             )
         except Exception as e:
-            print(f"[ERROR] Search query failed: {e}")
-            print(f"[ERROR] Query: {query}")
-            print(f"[ERROR] Parameters: {query_params}")
+            print(f'[ERROR] Search query failed: {e}')
+            print(f'[ERROR] Query: {query}')
+            print('[ERROR] Parameters unavailable')
             # Return empty results to continue execution
             results = []
 
             # Print scores for debugging
-        print(f"[DEBUG] Number of edges to search: {len(edges)}")
-        print(f"[DEBUG] Number of results: {len(results)}")
+        print(f'[DEBUG] Number of edges to search: {len(edges)}')
+        print(f'[DEBUG] Number of results: {len(results)}')
 
         for result in results:
             search_edge_uuid = result['search_edge_uuid']
             matches = result['matches']
-            print(f"[DEBUG] Search edge {search_edge_uuid}: {len(matches)} matches")
+            print(f'[DEBUG] Search edge {search_edge_uuid}: {len(matches)} matches')
             if not matches:
-                print(f"[DEBUG] ❌ No matches found for {search_edge_uuid}")
+                print(f'[DEBUG] ❌ No matches found for {search_edge_uuid}')
             else:
                 for match in matches:
                     has_embedding = match.get('has_embedding', False)
                     embedding_length = match.get('embedding_length', 0)
                     fact = match.get('fact', 'N/A')
                     print(
-                        f"[DEBUG] - Match: has_embedding={has_embedding}, embedding_length={embedding_length}, fact={fact[:50]}...")
+                        f'[DEBUG] - Match: has_embedding={has_embedding}, embedding_length={embedding_length}, fact={fact[:50]}...'
+                    )
 
     relevant_edges_dict: dict[str, list[EntityEdge]] = {
         result['search_edge_uuid']: [
@@ -2186,12 +2186,12 @@ async def get_embeddings_for_edges(
 
 
 async def node_fallback_search_custom(
-        driver: GraphDriver,
-        query: str,
-        query_entity_type: list[str] | None,
-        search_filter: SearchFilters,
-        group_ids: list[str] | None = None,
-        limit=RELEVANT_SCHEMA_LIMIT,
+    driver: GraphDriver,
+    query: str,
+    query_entity_type: list[str] | None,
+    search_filter: SearchFilters,
+    group_ids: list[str] | None = None,
+    limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[EntityNode]:
     """Fallback search for custom node types when fulltext search is not available"""
     print(f"[DEBUG] Using custom fallback search for query: '{query}'")
@@ -2199,34 +2199,33 @@ async def node_fallback_search_custom(
     filter_query, filter_params = node_search_filter_query_constructor(search_filter)
 
     # Build group filter
-    group_filter = ""
-    if group_ids:
-        group_filter = "AND n.group_id IN $group_ids"
 
     label = query_entity_type[0] if query_entity_type else None
     # Search across all your custom node types or specific label
     if label:
         # Search only within the specified label
-        match_pattern = f"MATCH (n:{label})"
+        match_pattern = f'MATCH (n:{label})'
     else:
         # Search across all custom node types
-        match_pattern = "MATCH (n:Person|Trait|Preference|RelationshipView|Belief|MemoryNote|EpisodeSummary)"
+        match_pattern = (
+            'MATCH (n:Person|Trait|Preference|RelationshipView|Belief|MemoryNote|EpisodeSummary)'
+        )
     # disable group_id filter (search across all groups-episodes)
     query_text = (
-            f"""
+        f"""
         {match_pattern}
         WHERE (n.name = $query)
         """
-            + filter_query
-            + """
+        + filter_query
+        + """
         RETURN
         """
-            + ENTITY_NODE_RETURN
-            + """
+        + get_entity_node_return_query(driver.provider)
+        + """
         LIMIT $limit
         """
     )
-    print("[DEBUG] Custom fallback search")
+    print('[DEBUG] Custom fallback search')
     # print(f"[DEBUG] Custom fallback query: {query_text}")
 
     records, _, _ = await driver.execute_query(
@@ -2239,5 +2238,5 @@ async def node_fallback_search_custom(
     )
 
     nodes = [get_entity_node_from_record(record) for record in records]
-    print(f"[DEBUG] Custom fallback search found {len(nodes)} nodes")
+    print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes')
     return nodes

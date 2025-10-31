@@ -99,7 +99,7 @@ async def extract_nodes(
     entities_missed = True
     reflexion_iterations = 0
 
-    print("[DEBUG] disabling default entity type: Entity")
+    print('[DEBUG] disabling default entity type: Entity')
     entity_types_context = []
     # entity_types_context = [
     #    {
@@ -107,12 +107,12 @@ async def extract_nodes(
     #        'entity_type_name': 'Entity',
     #        'entity_type_description': 'Default entity classification. Use this entity type if the entity is not one of the other listed types.',
     #    }
-    #]
+    # ]
 
     entity_types_context += (
         [
             {
-                'entity_type_id': i, # change from i + 1 to i as we remove Entity type
+                'entity_type_id': i,  # change from i + 1 to i as we remove Entity type
                 'entity_type_name': type_name,
                 'entity_type_description': type_model.__doc__,
             }
@@ -146,7 +146,7 @@ async def extract_nodes(
                 group_id=episode.group_id,
                 prompt_name='extract_nodes.extract_text',
             )
-            print("[DEBUG] llm_response: ", llm_response)
+            print('[DEBUG] llm_response: ', llm_response)
         elif episode.source == EpisodeType.json:
             llm_response = await llm_client.generate_response(
                 prompt_library.extract_nodes.extract_json(context),
@@ -160,13 +160,28 @@ async def extract_nodes(
         - remove any entity type person, with name starting with '路人'
         - keep the node with name '你' but change the name to 'Aria'
         """
-        llm_response['extracted_entities'] = [entity for entity in llm_response['extracted_entities'] if
-                                              entity["entity_type_id"] != 0 or not entity["name"].startswith('路人')]
-        if '你' in [entity["name"] for entity in llm_response['extracted_entities'] if entity["entity_type_id"] == 0]:
-            llm_response['extracted_entities'] = [entity for entity in llm_response['extracted_entities'] if entity["name"] != '你']
-            if 'Aria' not in [entity["name"] for entity in llm_response['extracted_entities'] if entity["entity_type_id"] == 0]:
-                llm_response['extracted_entities'].append(ExtractedEntity(name='Aria', entity_type_id=0))
-                print("[DEBUG] llm_response after manually checking: ", llm_response)
+        llm_response['extracted_entities'] = [
+            entity
+            for entity in llm_response['extracted_entities']
+            if entity['entity_type_id'] != 0 or not entity['name'].startswith('路人')
+        ]
+        if '你' in [
+            entity['name']
+            for entity in llm_response['extracted_entities']
+            if entity['entity_type_id'] == 0
+        ]:
+            llm_response['extracted_entities'] = [
+                entity for entity in llm_response['extracted_entities'] if entity['name'] != '你'
+            ]
+            if 'Aria' not in [
+                entity['name']
+                for entity in llm_response['extracted_entities']
+                if entity['entity_type_id'] == 0
+            ]:
+                llm_response['extracted_entities'].append(
+                    ExtractedEntity(name='Aria', entity_type_id=0)
+                )
+                print('[DEBUG] llm_response after manually checking: ', llm_response)
 
         response_object = ExtractedEntities(**llm_response)
 

@@ -17,8 +17,8 @@ limitations under the License.
 from .client import LLMClient
 from .config import LLMConfig
 from .errors import RateLimitError
-from .openai_client import OpenAIClient
-from .grok_client import GrokClient
 from .gemini_client import GeminiClient
+from .grok_client import GrokClient
+from .openai_client import OpenAIClient
 
 __all__ = ['LLMClient', 'OpenAIClient', 'LLMConfig', 'RateLimitError', 'GeminiClient', 'GrokClient']
