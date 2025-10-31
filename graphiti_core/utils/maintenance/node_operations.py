@@ -236,7 +236,9 @@ async def _collect_candidate_nodes(
         *[
             search(
                 clients=clients,
+                query_node=node,
                 query=node.name,
+                query_entity_type=node.labels,
                 group_ids=[node.group_id],
                 search_filter=SearchFilters(),
                 config=NODE_HYBRID_SEARCH_RRF,
