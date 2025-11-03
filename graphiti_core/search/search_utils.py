@@ -562,6 +562,7 @@ async def node_fulltext_search(
     group_ids: list[str] | None = None,
     limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[EntityNode]:
+    print(f'[DEBUG][GodwitTest] node_fulltext_search called with query: "{query}"')
     if driver.search_interface:
         return await driver.search_interface.node_fulltext_search(
             driver, query, search_filter, group_ids, limit
