@@ -587,9 +587,9 @@ async def node_fulltext_search(
     print(f'[DEBUG] group_ids filter: {group_ids}')
     print(f'[DEBUG] full fuzzy_query: {fuzzy_query}')
 
-    if group_ids is not None:
-        filter_queries.append('n.group_id IN $group_ids')
-        filter_params['group_ids'] = group_ids
+    # if group_ids is not None:
+    #     filter_queries.append('n.group_id IN $group_ids')
+    #     filter_params['group_ids'] = group_ids
 
     filter_query = ''
     if filter_queries:
@@ -639,7 +639,7 @@ async def node_fulltext_search(
                     YIELD node AS n, score
                     """
                 + filter_query
-                + f"""
+                + """
                     WHERE score > {min_score}
                     WITH n, score
                     ORDER BY score DESC
@@ -738,7 +738,7 @@ async def node_fulltext_search(
             print(f'--[DEBUG] {record[0]}, {record[2]}')
             # break
 
-        nodes = [get_entity_node_from_record(record) for record in records]
+        nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
         print(f'[DEBUG] Found {len(nodes)} nodes from search')
 
         # If no results from fulltext search, try fallback search
@@ -2196,7 +2196,10 @@ async def node_fallback_search_custom(
     """Fallback search for custom node types when fulltext search is not available"""
     print(f"[DEBUG] Using custom fallback search for query: '{query}'")
 
-    filter_query, filter_params = node_search_filter_query_constructor(search_filter)
+    filter_queries, filter_params = node_search_filter_query_constructor(search_filter,driver.provider)
+    filter_query = ''
+    if filter_queries:
+        filter_query = ' WHERE ' + (' AND '.join(filter_queries))
 
     # Build group filter
 
@@ -2237,6 +2240,6 @@ async def node_fallback_search_custom(
         **filter_params,
     )
 
-    nodes = [get_entity_node_from_record(record) for record in records]
+    nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes')
     return nodes

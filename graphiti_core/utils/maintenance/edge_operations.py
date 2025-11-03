@@ -278,8 +278,10 @@ async def resolve_extracted_edges(
     related_edges_results: list[SearchResults] = await semaphore_gather(
         *[
             search(
-                clients,
-                extracted_edge.fact,
+                clients=clients,
+                query_node=extracted_edge,
+                query=extracted_edge.fact,
+                query_entity_type=[extracted_edge.name],
                 group_ids=[extracted_edge.group_id],
                 config=EDGE_HYBRID_SEARCH_RRF,
                 search_filter=SearchFilters(edge_uuids=[edge.uuid for edge in valid_edges]),
@@ -294,7 +296,9 @@ async def resolve_extracted_edges(
         *[
             search(
                 clients,
-                extracted_edge.fact,
+                query_node=extracted_edge,
+                query=extracted_edge.fact,
+                query_entity_type=[extracted_edge.name],
                 group_ids=[extracted_edge.group_id],
                 config=EDGE_HYBRID_SEARCH_RRF,
                 search_filter=SearchFilters(),
