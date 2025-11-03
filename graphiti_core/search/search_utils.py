@@ -639,7 +639,7 @@ async def node_fulltext_search(
                     YIELD node AS n, score
                     """
                 + filter_query
-                + """
+                + f"""
                     WHERE score > {min_score}
                     WITH n, score
                     ORDER BY score DESC
