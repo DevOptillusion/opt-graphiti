@@ -35,22 +35,18 @@ def get_episodic_edge_save_bulk_query(provider: GraphProvider) -> str:
     if provider == GraphProvider.KUZU:
         return """
             MATCH (episode:Episodic {uuid: $source_node_uuid})
-            MATCH (node:Entity {uuid: $target_node_uuid})
+            MATCH (node {uuid: $target_node_uuid})
             MERGE (episode)-[e:MENTIONS {uuid: $uuid}]->(node)
-            SET
-                e.group_id = $group_id,
-                e.created_at = $created_at
+            SET e = {uuid: $uuid, group_id: $group_id, created_at: $created_at}
             RETURN e.uuid AS uuid
         """
 
     return """
         UNWIND $episodic_edges AS edge
         MATCH (episode:Episodic {uuid: edge.source_node_uuid})
-        MATCH (node:Entity {uuid: edge.target_node_uuid})
+        MATCH (node {uuid: edge.target_node_uuid})
         MERGE (episode)-[e:MENTIONS {uuid: edge.uuid}]->(node)
-        SET
-            e.group_id = edge.group_id,
-            e.created_at = edge.created_at
+        SET e = {uuid: edge.uuid, group_id: edge.group_id, created_at: edge.created_at}
         RETURN e.uuid AS uuid
     """
 
