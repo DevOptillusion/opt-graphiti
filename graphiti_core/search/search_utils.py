@@ -579,17 +579,9 @@ async def node_fulltext_search(
         search_filter, driver.provider
     )
 
-    # removed: WHERE n:Entity AND n.group_id IN $group_ids
-
-    # Debug: Check what get_nodes_query returns
-    # nodes_query_part = get_nodes_query(driver.provider, 'node_name_and_summary', '$query')
-    # print(f"[DEBUG] get_nodes_query returned: {nodes_query_part}")
-    print(f'[DEBUG] group_ids filter: {group_ids}')
-    print(f'[DEBUG] full fuzzy_query: {fuzzy_query}')
-
-    # if group_ids is not None:
-    #     filter_queries.append('n.group_id IN $group_ids')
-    #     filter_params['group_ids'] = group_ids
+    if group_ids is not None:
+        filter_queries.append('n.group_id IN $group_ids')
+        filter_params['group_ids'] = group_ids
 
     filter_query = ''
     if filter_queries:
@@ -773,10 +765,7 @@ async def node_similarity_search(
         search_filter, driver.provider
     )
 
-    if label == 'Person':
-        pass
-    else:
-        if group_ids is not None:
+    if group_ids is not None:
             filter_queries.append('n.group_id IN $group_ids')
             filter_params['group_ids'] = group_ids
 
