@@ -804,7 +804,10 @@ class Graphiti:
                     }
                 )
 
-                logger.info(f'Completed add_episode in {(end - start) * 1000} ms')
+                duration = end - start
+                minutes = int(duration // 60)
+                seconds = int(duration % 60)
+                logger.info(f'Completed add_episode in {minutes} min {seconds} s')
 
                 return AddEpisodeResults(
                     episode=episode,
