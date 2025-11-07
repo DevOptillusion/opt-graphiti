@@ -384,6 +384,31 @@ class EpisodicNode(Node):
         episodes = [get_episodic_node_from_record(record) for record in records]
 
         return episodes
+    
+    @classmethod
+    async def get_by_name(cls, driver: GraphDriver, name: str, group_id: str | None = None):
+        records, _, _ = await driver.execute_query(
+            """
+            MATCH (e:Episodic {name: $name})
+            WHERE e.group_id = $group_id
+            RETURN
+            """
+            + (
+                EPISODIC_NODE_RETURN_NEPTUNE
+                if driver.provider == GraphProvider.NEPTUNE
+                else EPISODIC_NODE_RETURN
+            ),
+            name=name,
+            group_id=group_id,
+            routing_='r',
+        )
+
+        episodes = [get_episodic_node_from_record(record) for record in records]
+
+        if len(episodes) == 0:
+           return None
+        else:
+            return episodes[0]
 
     @classmethod
     async def get_by_group_ids(

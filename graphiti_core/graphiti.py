@@ -703,11 +703,11 @@ class Graphiti:
                     else await EpisodicNode.get_by_uuids(self.driver, previous_episode_uuids)
                 )
 
-                # Get or create episode
-                episode = (
-                    await EpisodicNode.get_by_uuid(self.driver, uuid)
-                    if uuid is not None
-                    else EpisodicNode(
+                # Get or creat episode by name match
+                episode = await EpisodicNode.get_by_name(self.driver, name,group_id=group_id)
+                if episode is None:
+                    print(f'No episode {name} found in group {group_id}, creating now...')
+                    episode = EpisodicNode(
                         name=name,
                         group_id=group_id,
                         labels=[],
@@ -717,7 +717,9 @@ class Graphiti:
                         created_at=now,
                         valid_at=reference_time,
                     )
-                )
+                else:
+                    print(f'Warning: Episode with name {name} already exists in group {group_id}, Updating episode...')
+                   
 
                 # Create default edge type map
                 edge_type_map_default = (
