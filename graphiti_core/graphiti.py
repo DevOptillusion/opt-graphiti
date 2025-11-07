@@ -682,6 +682,8 @@ class Graphiti:
         start = time()
         now = utc_now()
 
+            # Store original source value to prevent it from being overwritten
+        episode_source_type = source.value if hasattr(source, 'value') else str(source) if source else 'unknown'
         validate_entity_types(entity_types)
 
         validate_excluded_entity_types(excluded_entity_types, entity_types)
@@ -789,7 +791,7 @@ class Graphiti:
                 span.add_attributes(
                     {
                         'episode.uuid': episode.uuid,
-                        'episode.source': source.value,
+                        'episode.source': episode_source_type,
                         'episode.reference_time': reference_time.isoformat(),
                         'group_id': group_id,
                         'node.count': len(hydrated_nodes),
