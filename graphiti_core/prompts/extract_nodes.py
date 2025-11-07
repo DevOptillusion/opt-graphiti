@@ -185,8 +185,8 @@ Indicate the classified entity type by providing its entity_type_id.
 {context['custom_prompt']}
 
 Guidelines:
-1. **Person Extraction**: if you see '你' as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person.Do not extract unimportant person with name like '路人甲','工作人员'。
-2. **RelationshipView Extraction**: Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they are in the act: 'Paris','Ruby'. Vice versa. Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
+1. **Person Extraction**: if you see '我' as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person.Do not extract unimportant person with name like '路人甲','工作人员'。
+2. **RelationshipView Extraction**: Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they are in the act: 'Paris','Elliot','Susan'. Vice versa. Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
 3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
 4. **MemoryNote Extraction**: Must extract at least one MemoryNote from each act.
 5. Extract significant entities, concepts, or actors mentioned in the act.

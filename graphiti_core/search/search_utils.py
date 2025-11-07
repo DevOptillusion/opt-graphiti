@@ -2223,5 +2223,6 @@ async def node_fallback_search_custom(
     )
 
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
-    print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes')
+    if len(nodes) > 0:
+        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes')
     return nodes
