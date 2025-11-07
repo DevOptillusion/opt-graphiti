@@ -675,11 +675,6 @@ async def node_fulltext_search(
             )
         # If a specific label is provided, search only on the name field for custom types
         elif label:
-            # Use a direct MATCH query to search only on the name field for custom types
-            group_filter_query = 'WHERE n.group_id IS NOT NULL'
-            if group_ids is not None:
-                group_filter_query += ' AND n.group_id IN $group_ids'
-            # disable group_id filter (search across all groups-episodes)
             cypher_query = (
                 """
                     MATCH (n:"""
@@ -695,8 +690,6 @@ async def node_fulltext_search(
                 + get_entity_node_return_query(driver.provider)
             )
             print('[DEBUG] Custom name-only search')
-            # print(f"[DEBUG] Custom name-only search query: {cypher_query}")
-            # print(f"[DEBUG] Query parameters: query='{query}', group_ids={group_ids}, limit={limit}")
         else:
             # Use the standard fulltext index for general Entity search # usually not used for custom node types
             cypher_query = (
@@ -714,13 +707,10 @@ async def node_fulltext_search(
                 + get_entity_node_return_query(driver.provider)
             )
             print('[DEBUG] Standard fulltext search')
-            # print(f"[DEBUG] Standard fulltext search query: {cypher_query}")
-            # print(f"[DEBUG] Query parameters: query='{fuzzy_query}', group_ids={group_ids}, limit={limit}")
 
         records, _, _ = await driver.execute_query(
             cypher_query,
             query=fuzzy_query,
-            group_ids=group_ids,
             limit=limit,
             routing_='r',
             **filter_params,
@@ -766,8 +756,8 @@ async def node_similarity_search(
     )
 
     if group_ids is not None:
-            filter_queries.append('n.group_id IN $group_ids')
-            filter_params['group_ids'] = group_ids
+        filter_queries.append('n.group_id IN $group_ids')
+        filter_params['group_ids'] = group_ids
 
     filter_query = ''
     if filter_queries:
@@ -2191,6 +2181,9 @@ async def node_fallback_search_custom(
         filter_query = ' WHERE ' + (' AND '.join(filter_queries))
 
     # Build group filter
+    if group_ids is not None:
+        filter_queries.append('n.group_id IN $group_ids')
+        filter_params['group_ids'] = group_ids
 
     label = query_entity_type[0] if query_entity_type else None
     # Search across all your custom node types or specific label
@@ -2223,7 +2216,6 @@ async def node_fallback_search_custom(
     records, _, _ = await driver.execute_query(
         query_text,
         query=query,
-        group_ids=group_ids,
         limit=limit,
         routing_='r',
         **filter_params,
