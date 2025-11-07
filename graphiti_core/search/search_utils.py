@@ -2177,13 +2177,13 @@ async def node_fallback_search_custom(
 
     filter_queries, filter_params = node_search_filter_query_constructor(search_filter,driver.provider)
     filter_query = ''
-
-    if filter_queries:
-        filter_query = ' WHERE ' + (' AND '.join(filter_queries))
     
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
         filter_params['group_ids'] = group_ids
+    
+    if filter_queries:
+        filter_query = ' WHERE ' + (' AND '.join(filter_queries))
 
     label = query_entity_type[0] if query_entity_type else None
     # Search across all your custom node types or specific label
