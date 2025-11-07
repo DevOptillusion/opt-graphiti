@@ -709,7 +709,7 @@ class Graphiti:
                 logger.info(f'Step 1: Get or create episode: {name} in group {group_id}')
                 episode = await EpisodicNode.get_by_name(self.driver, name,group_id=group_id)
                 if episode is None:
-                    print(f'--No episode {name} found in group {group_id}, creating now...')
+                    logger.info(f'No episode {name} found in group {group_id}, creating now...')
                     episode = EpisodicNode(
                         name=name,
                         group_id=group_id,
@@ -721,7 +721,7 @@ class Graphiti:
                         valid_at=reference_time,
                     )
                 else:
-                    print(f'--Warning: Episode with name {name} already exists in group {group_id}, Updating episode...')
+                    logger.info(f'Warning: Episode with name {name} already exists in group {group_id}, Updating episode...')
                    
 
                 # Create default edge type map

@@ -723,7 +723,7 @@ async def node_fulltext_search(
         nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         if nodes:
-            print(f'[DEBUG] Found {len(nodes)} nodes from search:{"".join([node.name for node in nodes])}')
+            logger.info(f'Found {len(nodes)} nodes from node_fulltext_search for {query_node.name}: {",".join([node.name for node in nodes])}')
             return nodes
         # If no results from fulltext search, try fallback search
         else:
@@ -858,7 +858,7 @@ async def node_similarity_search(
     #     # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if nodes:
-        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search, with name as:{", ".join([node.name for node in nodes])}')
+        logger.info(f'Found {len(nodes)} nodes from similarity search, with name as:{", ".join([node.name for node in nodes])}')
     return nodes
 
 

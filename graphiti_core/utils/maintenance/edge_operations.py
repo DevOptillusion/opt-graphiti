@@ -143,9 +143,9 @@ async def extract_edges(
             prompt_name='extract_edges.edge',
         )
         try:
-            print(f'[DEBUG] Edge Extraction llm_response: extracted {len(llm_response["edges"])} edges.')
+            logger.info(f"Edge Extraction llm_response: extracted {len(llm_response['edges'])} edges: {', '.join([f'{edge.name} - {edge.fact}' for edge in llm_response['edges']])}")
         except KeyError:
-            print(f'[DEBUG] Edge Extraction llm_response: no edges found')
+            logger.warning(f'Edge Extraction llm_response: no edges found')
         edges_data = ExtractedEdges(**llm_response).edges
 
         context['extracted_facts'] = [edge_data.fact for edge_data in edges_data]
