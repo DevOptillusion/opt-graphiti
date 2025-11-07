@@ -640,7 +640,7 @@ async def node_fulltext_search(
                     """
                 + get_entity_node_return_query(driver.provider)
             )
-            print('[DEBUG] Person fulltext search')
+            logger.debug('[DEBUG] Person fulltext search')
         elif label == 'RelationshipView':
             cypher_query = (
                 'CALL db.index.fulltext.queryNodes("relationship_view_search", $query)'
@@ -657,7 +657,7 @@ async def node_fulltext_search(
                     """
                 + get_entity_node_return_query(driver.provider)
             )
-            print('[DEBUG] RelationshipView fulltext search')
+            logger.debug('[DEBUG] RelationshipView fulltext search')
         elif label == 'Preference':
             cypher_query = (
                 'CALL db.index.fulltext.queryNodes("preference_search", $query)'
@@ -689,7 +689,7 @@ async def node_fulltext_search(
                     """
                 + get_entity_node_return_query(driver.provider)
             )
-            print('[DEBUG] Custom name-only search')
+            logger.debug('[DEBUG] Custom name-only search')
         else:
             # Use the standard fulltext index for general Entity search # usually not used for custom node types
             cypher_query = (
@@ -706,7 +706,7 @@ async def node_fulltext_search(
                     """
                 + get_entity_node_return_query(driver.provider)
             )
-            print('[DEBUG] Standard fulltext search')
+            logger.debug('[DEBUG] Standard fulltext search')
 
         records, _, _ = await driver.execute_query(
             cypher_query,
@@ -715,7 +715,7 @@ async def node_fulltext_search(
             routing_='r',
             **filter_params,
         )
-        print(f'[DEBUG] full_text_search Records for {query}')
+        logger.debug(f'[DEBUG] full_text_search Records for {query}')
         # for record in records:
         #     print(f'--[DEBUG] {record[0]}, {record[2]}')
             # break
@@ -723,12 +723,12 @@ async def node_fulltext_search(
         nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         if nodes:
-            print(f'[DEBUG] Found {len(nodes)} nodes from search:{nodes}')
-            print(f"',/n'.".join([node.name for node in nodes]))
+            print(f'[DEBUG] Found {len(nodes)} nodes from search:')
+            print(",".join([node.name for node in nodes]))
             return nodes
         # If no results from fulltext search, try fallback search
         else:
-            print('[DEBUG] No results from fulltext search, trying fallback...')
+            print('[DEBUG] No results from node_fulltext_search, trying node_fallback_search_custom...')
             return await node_fallback_search_custom(
                 driver, query, query_entity_type, search_filter, group_ids, limit
             )
@@ -859,9 +859,7 @@ async def node_similarity_search(
     #     # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if nodes:
-        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search for query')
-        print(f"',/n'.".join([node.name for node in nodes]))
-
+        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search, with name as:{",".join([node.name for node in nodes])}')
     return nodes
 
 
@@ -2217,7 +2215,7 @@ async def node_fallback_search_custom(
         LIMIT $limit
         """
     )
-    print('[DEBUG] Custom fallback search')
+    #print('[DEBUG] Custom fallback search')
 
     records, _, _ = await driver.execute_query(
         query_text,
@@ -2229,5 +2227,6 @@ async def node_fallback_search_custom(
 
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if len(nodes) > 0:
-        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes:{nodes}')
+        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes:')
+        print(",".join([node.name for node in nodes]))
     return nodes

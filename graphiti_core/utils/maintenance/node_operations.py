@@ -146,7 +146,6 @@ async def extract_nodes(
                 group_id=episode.group_id,
                 prompt_name='extract_nodes.extract_text',
             )
-            print('[DEBUG] llm_response: ', llm_response)
         elif episode.source == EpisodeType.json:
             llm_response = await llm_client.generate_response(
                 prompt_library.extract_nodes.extract_json(context),
@@ -222,7 +221,7 @@ async def extract_nodes(
             logger.debug(f'Excluding entity "{extracted_entity.name}" of type "{entity_type_name}"')
             continue
 
-        print("[DEBUG] disabling label 'Entity' for entity type")
+        logger.debug("[DEBUG] disabling label 'Entity' for entity type")
         # labels: list[str] = list({'Entity', str(entity_type_name)})
         labels: list[str] = list({str(entity_type_name)})
 
