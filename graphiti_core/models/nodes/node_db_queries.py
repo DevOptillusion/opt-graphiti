@@ -188,7 +188,7 @@ def get_entity_node_save_bulk_query(
     provider: GraphProvider, nodes: list[dict], has_aoss: bool = False
 ) -> str | Any:
     # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
-    print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
+    #print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
     match provider:
         case GraphProvider.FALKORDB:
             queries = []
@@ -241,7 +241,7 @@ def get_entity_node_save_bulk_query(
             """
         case _:  # Neo4j
             # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
-            print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
+            #print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
             save_embedding_query = (
                 'WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)'
                 if not has_aoss

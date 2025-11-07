@@ -143,7 +143,7 @@ async def extract_edges(
             prompt_name='extract_edges.edge',
         )
         try:
-            print(f'[DEBUG] Edge Extraction llm_response: found {len(llm_response["edges"])} edges.')
+            print(f'[DEBUG] Edge Extraction llm_response: extracted {len(llm_response["edges"])} edges.')
         except KeyError:
             print(f'[DEBUG] Edge Extraction llm_response: no edges found')
         edges_data = ExtractedEdges(**llm_response).edges

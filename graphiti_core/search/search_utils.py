@@ -728,7 +728,7 @@ async def node_fulltext_search(
             return nodes
         # If no results from fulltext search, try fallback search
         else:
-            print('[DEBUG] No results from node_fulltext_search, trying node_fallback_search_custom...')
+            logger.debug('[DEBUG] No results from node_fulltext_search, trying node_fallback_search_custom...')
             return await node_fallback_search_custom(
                 driver, query, query_entity_type, search_filter, group_ids, limit
             )
@@ -859,7 +859,7 @@ async def node_similarity_search(
     #     # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if nodes:
-        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search, with name as:{",".join([node.name for node in nodes])}')
+        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search, with name as:{";".join([node.name for node in nodes])}')
     return nodes
 
 
@@ -2177,7 +2177,7 @@ async def node_fallback_search_custom(
     limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[EntityNode]:
     """Fallback search for custom node types when fulltext search is not available"""
-    print(f"[DEBUG] Using custom fallback search for query: '{query}'")
+    logger.debug(f"[DEBUG] Using custom fallback search for query: '{query}'")
 
     filter_queries, filter_params = node_search_filter_query_constructor(search_filter,driver.provider)
     filter_query = ''
