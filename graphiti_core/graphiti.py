@@ -704,9 +704,10 @@ class Graphiti:
                 )
 
                 # Get or creat episode by name match
+                logger.info(f'Step 1: Get or create episode: {name} in group {group_id}')
                 episode = await EpisodicNode.get_by_name(self.driver, name,group_id=group_id)
                 if episode is None:
-                    print(f'No episode {name} found in group {group_id}, creating now...')
+                    print(f'--No episode {name} found in group {group_id}, creating now...')
                     episode = EpisodicNode(
                         name=name,
                         group_id=group_id,
@@ -718,7 +719,7 @@ class Graphiti:
                         valid_at=reference_time,
                     )
                 else:
-                    print(f'Warning: Episode with name {name} already exists in group {group_id}, Updating episode...')
+                    print(f'--Warning: Episode with name {name} already exists in group {group_id}, Updating episode...')
                    
 
                 # Create default edge type map
@@ -732,14 +733,18 @@ class Graphiti:
                 extracted_nodes = await extract_nodes(
                     self.clients, episode, previous_episodes, entity_types, excluded_entity_types
                 )
-
-                nodes, uuid_map, _ = await resolve_extracted_nodes(
+                logger.info(f'Step 2: Extracted nodes: {[(n.name, n.uuid) for n in extracted_nodes]}')
+                nodes, uuid_map, duplicates = await resolve_extracted_nodes(
                     self.clients,
                     extracted_nodes,
                     episode,
                     previous_episodes,
                     entity_types,
                 )
+                logger.info(f'Step 3: Resolved nodes: {[(n.name, n.uuid) for n in nodes]}')
+                if duplicates:
+                    for source, target in duplicates:
+                        logger.info(f'--Duplicate nodes: {source.name} and {target.name}')
 
                 # Extract and resolve edges in parallel with attribute extraction
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
@@ -752,12 +757,13 @@ class Graphiti:
                     nodes,
                     uuid_map,
                 )
+                logger.info(f'Step 4: Resolved edges: {[(e.fact) for e in resolved_edges]}')
 
                 # Extract node attributes
                 hydrated_nodes = await extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
                 )
-
+                logger.info(f'Step 5: Hydrated nodes: {[(n.name, n.uuid) for n in hydrated_nodes]}')
                 entity_edges = resolved_edges + invalidated_edges
 
                 # Process and save episode data
