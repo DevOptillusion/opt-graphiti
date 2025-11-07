@@ -735,7 +735,7 @@ class Graphiti:
                 extracted_nodes = await extract_nodes(
                     self.clients, episode, previous_episodes, entity_types, excluded_entity_types
                 )
-                logger.info(f'Step 2: Extracted nodes: {[(n.name, n.labels) for n in extracted_nodes]}')
+                logger.info(f'Step 2: {len(extracted_nodes)} Extracted nodes: {[(n.name, n.labels) for n in extracted_nodes]}')
                 nodes, uuid_map, duplicates = await resolve_extracted_nodes(
                     self.clients,
                     extracted_nodes,
@@ -743,7 +743,7 @@ class Graphiti:
                     previous_episodes,
                     entity_types,
                 )
-                logger.info(f'Step 3: Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
+                logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
                 if duplicates:
                     for source, target in duplicates:
                         logger.info(f'Duplicate nodes: {source.name} -- {target.name}')
@@ -760,14 +760,14 @@ class Graphiti:
                     uuid_map,
                 )
                 if resolved_edges:
-                    logger.info(f'Step 4: Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
+                    logger.info(f'Step 4: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
 
 
                 # Extract node attributes
                 hydrated_nodes = await extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
                 )
-                logger.info(f'Step 5: Hydrated nodes: {[(n.name, n.labels) for n in hydrated_nodes]}')
+                logger.info(f'Step 5: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels) for n in hydrated_nodes]}')
                 entity_edges = resolved_edges + invalidated_edges
 
                 # Process and save episode data
