@@ -99,7 +99,7 @@ async def extract_nodes(
     entities_missed = True
     reflexion_iterations = 0
 
-    print('[DEBUG] disabling default entity type: Entity')
+    logger.debug('[DEBUG] disabling default entity type: Entity')
     entity_types_context = []
     # entity_types_context = [
     #    {

@@ -733,7 +733,7 @@ class Graphiti:
                 extracted_nodes = await extract_nodes(
                     self.clients, episode, previous_episodes, entity_types, excluded_entity_types
                 )
-                logger.info(f'Step 2: Extracted nodes: {[(n.name, n.uuid) for n in extracted_nodes]}')
+                logger.info(f'Step 2: Extracted nodes: {[(n.name, n.labels) for n in extracted_nodes]}')
                 nodes, uuid_map, duplicates = await resolve_extracted_nodes(
                     self.clients,
                     extracted_nodes,
@@ -741,7 +741,7 @@ class Graphiti:
                     previous_episodes,
                     entity_types,
                 )
-                logger.info(f'Step 3: Resolved nodes: {[(n.name, n.uuid) for n in nodes]}')
+                logger.info(f'Step 3: Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
                 if duplicates:
                     for source, target in duplicates:
                         logger.info(f'--Duplicate nodes: {source.name} and {target.name}')
