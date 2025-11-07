@@ -723,8 +723,7 @@ async def node_fulltext_search(
         nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         if nodes:
-            print(f'[DEBUG] Found {len(nodes)} nodes from search:')
-            print(",".join([node.name for node in nodes]))
+            print(f'[DEBUG] Found {len(nodes)} nodes from search:{"".join([node.name for node in nodes])}')
             return nodes
         # If no results from fulltext search, try fallback search
         else:
@@ -859,7 +858,7 @@ async def node_similarity_search(
     #     # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if nodes:
-        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search, with name as:{";".join([node.name for node in nodes])}')
+        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search, with name as:{", ".join([node.name for node in nodes])}')
     return nodes
 
 
@@ -2227,6 +2226,5 @@ async def node_fallback_search_custom(
 
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if len(nodes) > 0:
-        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes:')
-        print(",".join([node.name for node in nodes]))
+        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes:{", ".join([node.name for node in nodes])}')
     return nodes
