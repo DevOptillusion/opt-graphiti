@@ -2178,6 +2178,8 @@ async def node_fallback_search_custom(
     filter_queries, filter_params = node_search_filter_query_constructor(search_filter,driver.provider)
     filter_query = ''
     
+    filter_queries.append('n.name = $query')
+    
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
         filter_params['group_ids'] = group_ids
@@ -2199,7 +2201,6 @@ async def node_fallback_search_custom(
     query_text = (
         f"""
         {match_pattern}
-        WHERE (n.name = $query)
         """
         + filter_query
         + """
