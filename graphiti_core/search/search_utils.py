@@ -187,7 +187,7 @@ async def edge_fulltext_search(
 
     match_query = """
     YIELD relationship AS rel, score
-    MATCH (n)-[e:RELATES_TO {uuid: rel.uuid}]->(m)
+    MATCH (n)-[e {uuid: rel.uuid}]->(m)
     """
     if driver.provider == GraphProvider.KUZU:
         match_query = """
@@ -305,7 +305,7 @@ async def edge_similarity_search(
         )
 
     match_query = """
-        MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+        MATCH (n)-[e]->(m)
     """
     if driver.provider == GraphProvider.KUZU:
         match_query = """
@@ -525,9 +525,9 @@ async def edge_bfs_search(
             query = (
                 f"""
                 UNWIND $bfs_origin_node_uuids AS origin_uuid
-                MATCH path = (origin {{uuid: origin_uuid}})-[:RELATES_TO|MENTIONS*1..{bfs_max_depth}]->(:Entity)
+                MATCH path = (origin {{uuid: origin_uuid}})-[*1..{bfs_max_depth}]->()
                 UNWIND relationships(path) AS rel
-                MATCH (n:Entity)-[e:RELATES_TO {{uuid: rel.uuid}}]-(m:Entity)
+                MATCH (n)-[e {{uuid: rel.uuid}}]-(m)
                 """
                 + filter_query
                 + """
