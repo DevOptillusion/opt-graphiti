@@ -2199,10 +2199,10 @@ async def node_fallback_search_custom(
     query_text = (
         f"""
         {match_pattern}
+        WHERE (n.name = $query)
         """
         + filter_query
         + """
-        AND (n.name = $query)
         RETURN
         """
         + get_entity_node_return_query(driver.provider)
