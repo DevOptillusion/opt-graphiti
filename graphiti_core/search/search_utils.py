@@ -632,7 +632,7 @@ async def node_fulltext_search(
                     """
                 + filter_query
                 + f"""
-                    WHERE score > {min_score}
+                    AND score > {min_score}
                     WITH n, score
                     ORDER BY score DESC
                     LIMIT $limit
@@ -649,7 +649,7 @@ async def node_fulltext_search(
                     """
                 + filter_query
                 + f"""
-                    WHERE score > {min_score}
+                    AND score > {min_score}
                     WITH n, score
                     ORDER BY score DESC
                     LIMIT $limit
@@ -683,7 +683,7 @@ async def node_fulltext_search(
                     """
                 + filter_query
                 + """
-                    WHERE n.name = $query
+                    AND n.name = $query
                     LIMIT $limit
                     RETURN
                     """
@@ -1401,9 +1401,9 @@ async def get_relevant_nodes(
     else:
         query = (
             """
-                                                                                                                                    UNWIND $nodes AS node
-                                                                                                                                    MATCH (n:Entity {group_id: $group_id})
-                                                                                                                                    """
+            UNWIND $nodes AS node
+            MATCH (n: {group_id: $group_id})
+            """
             + filter_query
             + """
             WITH node, n, """
@@ -1564,9 +1564,9 @@ async def get_relevant_edges(
 
             query = (
                 """
-                                                                                                                                        UNWIND $edges AS edge
-                                                                                                                                        MATCH (n:Entity {uuid: edge.source_node_uuid})-[:RELATES_TO]-(e:RelatesToNode_ {group_id: edge.group_id})-[:RELATES_TO]-(m:Entity {uuid: edge.target_node_uuid})
-                                                                                                                                        """
+                UNWIND $edges AS edge
+                MATCH (n:Entity {uuid: edge.source_node_uuid})-[:RELATES_TO]-(e:RelatesToNode_ {group_id: edge.group_id})-[:RELATES_TO]-(m:Entity {uuid: edge.target_node_uuid})
+                """
                 + filter_query
                 + """
                 WITH e, edge, n, m, """
@@ -2177,10 +2177,10 @@ async def node_fallback_search_custom(
 
     filter_queries, filter_params = node_search_filter_query_constructor(search_filter,driver.provider)
     filter_query = ''
+
     if filter_queries:
         filter_query = ' WHERE ' + (' AND '.join(filter_queries))
-
-    # Build group filter
+    
     if group_ids is not None:
         filter_queries.append('n.group_id IN $group_ids')
         filter_params['group_ids'] = group_ids
@@ -2199,10 +2199,10 @@ async def node_fallback_search_custom(
     query_text = (
         f"""
         {match_pattern}
-        WHERE (n.name = $query)
         """
         + filter_query
         + """
+        AND (n.name = $query)
         RETURN
         """
         + get_entity_node_return_query(driver.provider)
