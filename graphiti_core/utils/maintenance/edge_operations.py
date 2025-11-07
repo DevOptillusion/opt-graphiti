@@ -142,7 +142,10 @@ async def extract_edges(
             group_id=group_id,
             prompt_name='extract_edges.edge',
         )
-        print('[DEBUG] edge llm_response: ', llm_response)
+        try:
+            print(f'[DEBUG] Edge Extraction llm_response: found {len(llm_response["edges"])} edges.')
+        except KeyError:
+            print(f'[DEBUG] Edge Extraction llm_response: no edges found')
         edges_data = ExtractedEdges(**llm_response).edges
 
         context['extracted_facts'] = [edge_data.fact for edge_data in edges_data]

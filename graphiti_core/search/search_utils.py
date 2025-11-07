@@ -716,21 +716,24 @@ async def node_fulltext_search(
             **filter_params,
         )
         print(f'[DEBUG] full_text_search Records for {query}')
-        for record in records:
-            print(f'--[DEBUG] {record[0]}, {record[2]}')
+        # for record in records:
+        #     print(f'--[DEBUG] {record[0]}, {record[2]}')
             # break
 
         nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
-        print(f'[DEBUG] Found {len(nodes)} nodes from search')
 
+        if nodes:
+            print(f'[DEBUG] Found {len(nodes)} nodes from search:{nodes}')
+            print(f"',/n'.".join([node.name for node in nodes]))
+            return nodes
         # If no results from fulltext search, try fallback search
-        if not nodes:
+        else:
             print('[DEBUG] No results from fulltext search, trying fallback...')
             return await node_fallback_search_custom(
                 driver, query, query_entity_type, search_filter, group_ids, limit
             )
 
-        return nodes
+       
 
 
 async def node_similarity_search(
@@ -770,8 +773,8 @@ async def node_similarity_search(
     if driver.provider == GraphProvider.NEPTUNE:
         query = (
             """
-                                                                                                                                    MATCH (n:Entity)
-                                                                                                                                    """
+            MATCH (n:Entity)
+            """
             + filter_query
             + """
             RETURN DISTINCT id(n) as id, n.name_embedding as embedding
@@ -850,11 +853,14 @@ async def node_similarity_search(
             routing_='r',
             **filter_params,
         )
-    print('[DEBUG] similarity_search Records using query_vector')
-    for record in records:
-        print(f'--[DEBUG] {record[0]}, {record[2]}')
-        # break
+    # print('[DEBUG] similarity_search Records using query_vector')
+    # for record in records:
+    #     print(f'--[DEBUG] {record[0]}, {record[2]}') # record[0] is score, record[2] is name
+    #     # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
+    if nodes:
+        print(f'[DEBUG] Found {len(nodes)} nodes from similarity search for query')
+        print(f"',/n'.".join([node.name for node in nodes]))
 
     return nodes
 
@@ -2212,7 +2218,6 @@ async def node_fallback_search_custom(
         """
     )
     print('[DEBUG] Custom fallback search')
-    # print(f"[DEBUG] Custom fallback query: {query_text}")
 
     records, _, _ = await driver.execute_query(
         query_text,
@@ -2224,5 +2229,5 @@ async def node_fallback_search_custom(
 
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if len(nodes) > 0:
-        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes')
+        print(f'[DEBUG] Custom fallback search found {len(nodes)} nodes:{nodes}')
     return nodes
