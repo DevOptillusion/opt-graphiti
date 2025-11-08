@@ -124,7 +124,7 @@ async def dedupe_episodic_edges(
         if (edge.source_node_uuid, edge.target_node_uuid) not in existing_edges_set
     ]
 
-    logger.debug(
+    logger.info(
         f'Deduplicated episodic edges: {len(episodic_edges)} -> {len(deduped_edges)} '
         f'({len(episodic_edges) - len(deduped_edges)} duplicates removed)'
     )
