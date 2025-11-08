@@ -119,6 +119,7 @@ You may use information from the PREVIOUS MESSAGES only to disambiguate referenc
    - **CRITICAL**: Using IDs not in the list will cause the edge to be rejected
 2. Each fact must involve two **distinct** entities.
 3. Use a SCREAMING_SNAKE_CASE string as the `relation_type` (e.g., FOUNDED, WORKS_AT).
+    -**CRITICAL**: Do not use any other format.
 4. Please do not emit duplicate or semantically redundant facts.
 5. The `fact` should closely paraphrase the original source sentence(s). Do not verbatim quote the original text.
 6. Use `REFERENCE_TIME` to resolve vague or relative temporal expressions (e.g., "last week").
