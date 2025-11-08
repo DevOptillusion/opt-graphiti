@@ -748,8 +748,7 @@ class Graphiti:
                 )
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
                 if duplicates:
-                    for source, target in duplicates:
-                        logger.info(f'Duplicate nodes: {source.name} -- {target.name}')
+                    logger.info(f'Duplicate nodes: {[(source.name,target.name)for source,target in duplicates]}')
 
                 # Extract and resolve edges in parallel with attribute extraction
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
@@ -764,7 +763,8 @@ class Graphiti:
                 )
                 if resolved_edges:
                     logger.info(f'Step 4: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
-
+                if invalidated_edges:
+                    logger.info(f'{len(invalidated_edges)} Invalidated edges: {[(e.name, e.fact) for e in invalidated_edges]}')
 
                 # Extract node attributes
                 hydrated_nodes = await extract_attributes_from_nodes(
