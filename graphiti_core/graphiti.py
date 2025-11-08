@@ -81,6 +81,7 @@ from graphiti_core.utils.maintenance.community_operations import (
 )
 from graphiti_core.utils.maintenance.edge_operations import (
     build_episodic_edges,
+    dedupe_episodic_edges,
     extract_edges,
     resolve_extracted_edge,
     resolve_extracted_edges,
@@ -419,6 +420,8 @@ class Graphiti:
     ) -> tuple[list[EpisodicEdge], EpisodicNode]:
         """Process and save episode data to the graph."""
         episodic_edges = build_episodic_edges(nodes, episode.uuid, now)
+        # Deduplicate episodic edges against existing MENTIONS edges
+        episodic_edges = await dedupe_episodic_edges(self.driver, episodic_edges)
         episode.entity_edges = [edge.uuid for edge in entity_edges]
 
         if not self.store_raw_episode_content:

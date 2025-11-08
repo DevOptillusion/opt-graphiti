@@ -147,7 +147,7 @@ class EpisodicEdge(Edge):
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         records, _, _ = await driver.execute_query(
             """
-            MATCH (n:Episodic)-[e:MENTIONS {uuid: $uuid}]->(m:Entity)
+            MATCH (n:Episodic)-[e:MENTIONS {uuid: $uuid}]->(m)
             RETURN
             """
             + EPISODIC_EDGE_RETURN,

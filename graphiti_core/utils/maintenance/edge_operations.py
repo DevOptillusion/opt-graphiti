@@ -68,6 +68,70 @@ def build_episodic_edges(
     return episodic_edges
 
 
+async def dedupe_episodic_edges(
+    driver: GraphDriver,
+    episodic_edges: list[EpisodicEdge],
+) -> list[EpisodicEdge]:
+    """
+    Deduplicate episodic edges by checking against existing MENTIONS edges
+    based on source (episode) and target (node) UUIDs.
+    """
+    if not episodic_edges:
+        return []
+
+    # Group edges by episode UUID for efficient querying
+    edges_by_episode: dict[str, list[EpisodicEdge]] = {}
+    for edge in episodic_edges:
+        if edge.source_node_uuid not in edges_by_episode:
+            edges_by_episode[edge.source_node_uuid] = []
+        edges_by_episode[edge.source_node_uuid].append(edge)
+
+    # Query existing edges for each episode
+    existing_edges_set: set[tuple[str, str]] = set()  # (episode_uuid, node_uuid)
+
+    for episode_uuid, edges in edges_by_episode.items():
+        target_uuids = [edge.target_node_uuid for edge in edges]
+
+        # Query existing MENTIONS edges for this episode and target nodes
+        if driver.provider == GraphProvider.KUZU:
+            query = """
+                MATCH (episode:Episodic {uuid: $episode_uuid})-[e:MENTIONS]->(node)
+                WHERE node.uuid IN $target_uuids
+                RETURN node.uuid AS target_uuid
+            """
+        else:
+            query = """
+                MATCH (episode:Episodic {uuid: $episode_uuid})-[e:MENTIONS]->(node)
+                WHERE node.uuid IN $target_uuids
+                RETURN node.uuid AS target_uuid
+            """
+
+        records, _, _ = await driver.execute_query(
+            query,
+            episode_uuid=episode_uuid,
+            target_uuids=target_uuids,
+            routing_='r',
+        )
+
+        # Add existing (episode, node) pairs to the set
+        for record in records:
+            existing_edges_set.add((episode_uuid, record['target_uuid']))
+
+    # Filter out edges that already exist
+    deduped_edges = [
+        edge
+        for edge in episodic_edges
+        if (edge.source_node_uuid, edge.target_node_uuid) not in existing_edges_set
+    ]
+
+    logger.debug(
+        f'Deduplicated episodic edges: {len(episodic_edges)} -> {len(deduped_edges)} '
+        f'({len(episodic_edges) - len(deduped_edges)} duplicates removed)'
+    )
+
+    return deduped_edges
+
+
 def build_community_edges(
     entity_nodes: list[EntityNode],
     community_node: CommunityNode,
