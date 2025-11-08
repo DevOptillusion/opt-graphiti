@@ -346,7 +346,7 @@ class EntityEdge(Edge):
         cls, driver: GraphDriver, source_node_uuid: str, target_node_uuid: str
     ):
         match_query = """
-            MATCH (n:Entity {uuid: $source_node_uuid})-[e:RELATES_TO]->(m:Entity {uuid: $target_node_uuid})
+            MATCH (n: {uuid: $source_node_uuid})-[e]->(m: {uuid: $target_node_uuid})
         """
         if driver.provider == GraphProvider.KUZU:
             match_query = """
@@ -376,7 +376,7 @@ class EntityEdge(Edge):
             return []
 
         match_query = """
-            MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+            MATCH (n)-[e]->(m)
         """
         if driver.provider == GraphProvider.KUZU:
             match_query = """
@@ -418,7 +418,7 @@ class EntityEdge(Edge):
         )
 
         match_query = """
-            MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
+            MATCH (n)-[e]->(m)
         """
         if driver.provider == GraphProvider.KUZU:
             match_query = """
@@ -455,7 +455,7 @@ class EntityEdge(Edge):
     @classmethod
     async def get_by_node_uuid(cls, driver: GraphDriver, node_uuid: str):
         match_query = """
-            MATCH (n:Entity {uuid: $node_uuid})-[e:RELATES_TO]-(m:Entity)
+            MATCH (n {uuid: $node_uuid})-[e]-(m)
         """
         if driver.provider == GraphProvider.KUZU:
             match_query = """
