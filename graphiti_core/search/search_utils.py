@@ -278,6 +278,8 @@ async def edge_fulltext_search(
         )
 
     edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
+    if edges:
+        logger.info(f'edge_fulltext_search found {len(edges)} edges for {query}: {", ".join([edge.fact for edge in edges])}')
 
     return edges
 
@@ -426,6 +428,8 @@ async def edge_similarity_search(
         )
 
     edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
+    if edges:
+        logger.info(f'edge_similarity_search found {len(edges)} edges: {", ".join([edge.fact for edge in edges])}')
 
     return edges
 
@@ -549,6 +553,8 @@ async def edge_bfs_search(
         )
 
     edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
+    if edges:
+        logger.info(f'edge_bfs_search found {len(edges)} edges: {", ".join([edge.fact for edge in edges])}')
 
     return edges
 
