@@ -279,7 +279,7 @@ async def edge_fulltext_search(
 
     edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
     if edges:
-        logger.info(f'edge_fulltext_search found {len(edges)} edges for {query}: {", ".join([edge.fact for edge in edges])}')
+        logger.debug(f'edge_fulltext_search found {len(edges)} edges for {query}: {", ".join([edge.fact for edge in edges])}')
 
     return edges
 
@@ -429,7 +429,7 @@ async def edge_similarity_search(
 
     edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
     if edges:
-        logger.info(f'edge_similarity_search found {len(edges)} edges: {", ".join([edge.fact for edge in edges])}')
+        logger.debug(f'edge_similarity_search found {len(edges)} edges: {", ".join([edge.fact for edge in edges])}')
 
     return edges
 
@@ -554,7 +554,7 @@ async def edge_bfs_search(
 
     edges = [get_entity_edge_from_record(record, driver.provider) for record in records]
     if edges:
-        logger.info(f'edge_bfs_search found {len(edges)} edges: {", ".join([edge.fact for edge in edges])}')
+        logger.debug(f'edge_bfs_search found {len(edges)} edges: {", ".join([edge.fact for edge in edges])}')
 
     return edges
 
@@ -729,7 +729,7 @@ async def node_fulltext_search(
         nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
 
         if nodes:
-            logger.info(f'Found {len(nodes)} nodes from node_fulltext_search for {query_node.name}: {",".join([node.name for node in nodes])}')
+            logger.debug(f'Found {len(nodes)} nodes from node_fulltext_search for {query_node.name}: {",".join([node.name for node in nodes])}')
             return nodes
         # If no results from fulltext search, try fallback search
         else:
@@ -864,7 +864,7 @@ async def node_similarity_search(
     #     # break
     nodes = [get_entity_node_from_record(record, driver.provider) for record in records]
     if nodes:
-        logger.info(f'Found {len(nodes)} nodes from similarity search, with name as:{", ".join([node.name for node in nodes])}')
+        logger.debug(f'Found {len(nodes)} nodes from similarity search, with name as:{", ".join([node.name for node in nodes])}')
     return nodes
 
 
