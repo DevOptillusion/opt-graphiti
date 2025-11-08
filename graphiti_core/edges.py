@@ -165,7 +165,7 @@ class EpisodicEdge(Edge):
     async def get_by_uuids(cls, driver: GraphDriver, uuids: list[str]):
         records, _, _ = await driver.execute_query(
             """
-            MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
+            MATCH (n:Episodic)-[e:MENTIONS]->(m)
             WHERE e.uuid IN $uuids
             RETURN
             """
@@ -193,7 +193,7 @@ class EpisodicEdge(Edge):
 
         records, _, _ = await driver.execute_query(
             """
-            MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
+            MATCH (n:Episodic)-[e:MENTIONS]->(m)
             WHERE e.group_id IN $group_ids
             """
             + cursor_query
@@ -255,7 +255,7 @@ class EntityEdge(Edge):
             return await driver.graph_operations_interface.edge_load_embeddings(self, driver)
 
         query = """
-            MATCH (n:Entity)-[e:RELATES_TO {uuid: $uuid}]->(m:Entity)
+            MATCH (n)-[e {uuid: $uuid}]->(m)
             RETURN e.fact_embedding AS fact_embedding
         """
 
@@ -318,7 +318,7 @@ class EntityEdge(Edge):
     @classmethod
     async def get_by_uuid(cls, driver: GraphDriver, uuid: str):
         match_query = """
-            MATCH (n:Entity)-[e:RELATES_TO {uuid: $uuid}]->(m:Entity)
+            MATCH (n)-[e {uuid: $uuid}]->(m)
         """
         if driver.provider == GraphProvider.KUZU:
             match_query = """
@@ -346,7 +346,7 @@ class EntityEdge(Edge):
         cls, driver: GraphDriver, source_node_uuid: str, target_node_uuid: str
     ):
         match_query = """
-            MATCH (n: {uuid: $source_node_uuid})-[e]->(m: {uuid: $target_node_uuid})
+            MATCH (n {uuid: $source_node_uuid})-[e]->(m {uuid: $target_node_uuid})
         """
         if driver.provider == GraphProvider.KUZU:
             match_query = """
