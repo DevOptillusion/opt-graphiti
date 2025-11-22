@@ -190,7 +190,10 @@ Guidelines:
    - Aria is also the narrator, so 旁白 refers to Aria as well.
    - Do not extract unimportant person with name like '路人甲','工作人员'. 
    - Please pay attention to unkown persons that whether you can find the name in the text.
-2. **RelationshipView Extraction**: Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they are in the act: 'Paris','Elliot','Susan'. Vice versa. Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
+2. **RelationshipView Extraction**: 
+    - Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they Aria meets them in the act: 'Paris','Elliot'. Vice versa.
+    - For other people that Aria meets, please decide whether you think a RelationshipView should be extracted for them. If you think so, please extract the RelationshipView.
+    -Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
 3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
 4. **MemoryNote Extraction**: Must extract at least one MemoryNote from each act.
 5. Extract significant entities, concepts, or actors mentioned in the act.
