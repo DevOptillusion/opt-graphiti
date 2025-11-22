@@ -197,6 +197,7 @@ Guidelines:
 6. Avoid creating nodes for locations.
 7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
 8. Be as explicit as possible in your node names, using first names and avoiding abbreviations.
+9. Please output everything in Chinese,but do not translate the Person name in English.
 """
     return [
         Message(role='system', content=sys_prompt),
