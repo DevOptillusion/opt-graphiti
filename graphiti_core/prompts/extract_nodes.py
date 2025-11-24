@@ -166,8 +166,40 @@ Guidelines:
 
 
 def extract_text(context: dict[str, Any]) -> list[Message]:
-    sys_prompt = """You are an AI assistant that extracts entity nodes from an act, usually contains ~50 lines of dialogues.
-    Your primary task is to extract and classify the speaker and other significant entities mentioned in the provided text."""
+    sys_prompt = """
+You are an AI assistant that extracts entity nodes from narrative scripts (50+ lines per act).
+Your task is to extract entities and classify them into the provided ENTITY TYPES.
+
+CRITICAL RULES (MUST FOLLOW):
+1. Do not add or invent any entity not supported by the text.
+2. Do not escape unicode characters.
+3. Output must be strictly in JSON array, no explanation.
+4. All content must remain in Chinese, except for Person names.
+5. Person names appear exactly as written; DO NOT translate English names.
+
+IDENTITY MAPPING:
+- “我” = Aria
+- “旁白” refers to Aria (the narrator)
+
+EXTRACTION SCOPE:
+- Extract only explicit or logically deducible entities.
+- Ignore all locations, times, dates, temporal markers.
+- Ignore metaphorical or non-literal actors.
+- Ignore any minor figures (e.g., 路人甲，工作人员).
+- Ignore pure emotional states as Belief if not stable or personal.
+
+ENTITY TYPE RULES:
+- Person: must be a real entity in text.
+- Preference: cannot target a Person.
+- RelationshipView:
+    * Name format: “holder_name:target_name”
+    * For each act, MUST extract: “Aria:X", if X appears. X includes Paris, Elliot, Laurie, Aiden, and Leonard.
+- Belief: internal belief of a person.
+- MemoryNote:
+    * MUST extract at least 1.
+    * Should represent a notable event from the act.
+    * Must be grounded in text; avoid abstractions.
+"""
 
     user_prompt = f"""
 <ENTITY TYPES>
@@ -178,30 +210,10 @@ def extract_text(context: dict[str, Any]) -> list[Message]:
 {context['episode_content']}
 </TEXT>
 
-Given the above text, extract entities from the TEXT that are explicitly or implicitly mentioned.
-For each entity extracted, also determine its entity type based on the provided ENTITY TYPES and their descriptions.
-Indicate the classified entity type by providing its entity_type_id.
+TASK:
+Extract all entities from TEXT and classify them using entity_type_id from ENTITY TYPES.
 
 {context['custom_prompt']}
-
-Guidelines:
-1. **Person Extraction**: 
-   - if you see '我'as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person. 
-   - Aria is also the narrator, so 旁白 refers to Aria as well.
-   - Do not extract unimportant person with name like '路人甲','工作人员'. 
-   - Please pay attention to unkown persons that whether you can find the name in the text.
-2. **RelationshipView Extraction**: 
-    - Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
-    - Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they Aria meets them in the act: 'Paris','Elliot'. e.g. 'Aria:Paris'.
-    - For other people that Aria meets, please decide whether you think a RelationshipView should be extracted for them. If you think so, please extract the RelationshipView of Aria to them.
-
-3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
-4. **MemoryNote Extraction**: Must extract at least one MemoryNote from each act.
-5. Extract significant entities, concepts, or actors mentioned in the act.
-6. Avoid creating nodes for locations.
-7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
-8. Be as explicit as possible in your node names, using first names and avoiding abbreviations.
-9. Please output everything in Chinese,but do not translate the Person name in English.
 """
     return [
         Message(role='system', content=sys_prompt),
