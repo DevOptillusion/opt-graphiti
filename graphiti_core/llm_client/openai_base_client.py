@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = 'gpt-5-mini'
 DEFAULT_SMALL_MODEL = 'gpt-5-nano'
-DEFAULT_REASONING = 'medium'
+DEFAULT_REASONING = 'minimal'
 DEFAULT_VERBOSITY = 'low'
 
 
