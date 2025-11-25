@@ -169,8 +169,8 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
         case _:
             save_embedding_queries = []
             if not has_aoss:
-                save_embedding_queries.append('WITH n CALL { WITH n WHERE $entity_data.name_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding) }')
-                save_embedding_queries.append('WITH n CALL { WITH n WHERE $entity_data.description_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "description_embedding", $entity_data.description_embedding) }')
+                save_embedding_queries.append('WITH n CALL { WITH n WHERE $entity_data.name_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding) RETURN count(*) AS _ }')
+                save_embedding_queries.append('WITH n CALL { WITH n WHERE $entity_data.description_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "description_embedding", $entity_data.description_embedding) RETURN count(*) AS _ }')
             save_embedding_query = '\n                '.join(save_embedding_queries) if save_embedding_queries else ''
             # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
             print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_query()")
@@ -250,8 +250,8 @@ def get_entity_node_save_bulk_query(
             #print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
             save_embedding_queries = []
             if not has_aoss:
-                save_embedding_queries.append('WITH n, node CALL { WITH n, node WHERE node.name_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding) }')
-                save_embedding_queries.append('WITH n, node CALL { WITH n, node WHERE node.description_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "description_embedding", node.description_embedding) }')
+                save_embedding_queries.append('WITH n, node CALL { WITH n, node WHERE node.name_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding) RETURN count(*) AS _ }')
+                save_embedding_queries.append('WITH n, node CALL { WITH n, node WHERE node.description_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "description_embedding", node.description_embedding) RETURN count(*) AS _ }')
             save_embedding_query = '\n                    '.join(save_embedding_queries) if save_embedding_queries else ''
             return (
                 """
@@ -321,7 +321,7 @@ def get_community_node_save_query(provider: GraphProvider) -> str:
             return """
                 MERGE (n:Community {uuid: $uuid})
                 SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
-                WITH n CALL { WITH n WHERE $name_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding) }
+                WITH n CALL { WITH n WHERE $name_embedding IS NOT NULL CALL db.create.setNodeVectorProperty(n, "name_embedding", $name_embedding) RETURN count(*) AS _ }
                 RETURN n.uuid AS uuid
             """
 

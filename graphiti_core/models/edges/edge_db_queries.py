@@ -106,7 +106,12 @@ def get_entity_edge_save_query(
             """
         case _:  # Neo4j
             save_embedding_query = (
-                """WITH e CALL { WITH e WHERE $edge_data.fact_embedding IS NOT NULL CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", $edge_data.fact_embedding) }"""
+                """WITH e CALL {
+                    WITH e
+                    WHERE $edge_data.fact_embedding IS NOT NULL
+                    CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", $edge_data.fact_embedding)
+                    RETURN count(*) AS _
+                }"""
                 if not has_aoss
                 else ''
             )
@@ -181,7 +186,12 @@ def get_entity_edge_save_bulk_query(
             """
         case _:
             save_embedding_query = (
-                'WITH rel, edge CALL { WITH rel, edge WHERE edge.fact_embedding IS NOT NULL CALL db.create.setRelationshipVectorProperty(rel, "fact_embedding", edge.fact_embedding) }'
+                """WITH rel, edge CALL {
+                    WITH rel, edge
+                    WHERE edge.fact_embedding IS NOT NULL
+                    CALL db.create.setRelationshipVectorProperty(rel, "fact_embedding", edge.fact_embedding)
+                    RETURN count(*) AS _
+                }"""
                 if not has_aoss
                 else ''
             )
