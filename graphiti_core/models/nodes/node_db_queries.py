@@ -136,6 +136,7 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
                 SET n:{labels}
                 SET n = $entity_data
                 SET n.name_embedding = vecf32($entity_data.name_embedding)
+                SET n.description_embedding = vecf32($entity_data.description_embedding)
                 RETURN n.uuid AS uuid
             """
         case GraphProvider.KUZU:
@@ -147,6 +148,7 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
                     n.labels = $labels,
                     n.created_at = $created_at,
                     n.name_embedding = $name_embedding,
+                    n.description_embedding = $description_embedding,
                     n.summary = $summary,
                     n.attributes = $attributes
                 WITH n
@@ -159,16 +161,17 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
             return f"""
                 MERGE (n:Entity {{uuid: $entity_data.uuid}})
                 {label_subquery}
-                SET n = removeKeyFromMap(removeKeyFromMap($entity_data, "labels"), "name_embedding")
+                SET n = removeKeyFromMap(removeKeyFromMap(removeKeyFromMap($entity_data, "labels"), "name_embedding"), "description_embedding")
                 SET n.name_embedding = join([x IN coalesce($entity_data.name_embedding, []) | toString(x) ], ",")
+                SET n.description_embedding = join([x IN coalesce($entity_data.description_embedding, []) | toString(x) ], ",")
                 RETURN n.uuid AS uuid
             """
         case _:
-            save_embedding_query = (
-                'WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)'
-                if not has_aoss
-                else ''
-            )
+            save_embedding_queries = []
+            if not has_aoss:
+                save_embedding_queries.append('WITH n CALL db.create.setNodeVectorProperty(n, "name_embedding", $entity_data.name_embedding)')
+                save_embedding_queries.append('WITH n CALL db.create.setNodeVectorProperty(n, "description_embedding", $entity_data.description_embedding)')
+            save_embedding_query = '\n                '.join(save_embedding_queries) if save_embedding_queries else ''
             # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
             print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_query()")
             return (
@@ -177,7 +180,7 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
                 SET n:{labels}
                 SET n = $entity_data
                 """
-                + save_embedding_query
+                + (f'\n                {save_embedding_query}' if save_embedding_query else '')
                 + """
                 RETURN n.uuid AS uuid
             """
@@ -203,6 +206,7 @@ def get_entity_node_save_bulk_query(
                             SET n = node
                             WITH n, node
                             SET n.name_embedding = vecf32(node.name_embedding)
+                            SET n.description_embedding = vecf32(node.description_embedding)
                             RETURN n.uuid AS uuid
                             """,
                             {'nodes': [node]},
@@ -220,8 +224,9 @@ def get_entity_node_save_bulk_query(
                         UNWIND $nodes AS node
                         MERGE (n:Entity {{uuid: node.uuid}})
                         {labels}
-                        SET n = removeKeyFromMap(removeKeyFromMap(node, "labels"), "name_embedding")
+                        SET n = removeKeyFromMap(removeKeyFromMap(removeKeyFromMap(node, "labels"), "name_embedding"), "description_embedding")
                         SET n.name_embedding = join([x IN coalesce(node.name_embedding, []) | toString(x) ], ",")
+                        SET n.description_embedding = join([x IN coalesce(node.description_embedding, []) | toString(x) ], ",")
                         RETURN n.uuid AS uuid
                     """
                 )
@@ -235,6 +240,7 @@ def get_entity_node_save_bulk_query(
                     n.labels = $labels,
                     n.created_at = $created_at,
                     n.name_embedding = $name_embedding,
+                    n.description_embedding = $description_embedding,
                     n.summary = $summary,
                     n.attributes = $attributes
                 RETURN n.uuid AS uuid
@@ -242,11 +248,11 @@ def get_entity_node_save_bulk_query(
         case _:  # Neo4j
             # change MERGE (n:Entity {uuid: node.uuid}) to MERGE (n {uuid: node.uuid})
             #print("[DEBUG] disable adding label 'Entity' in get_entity_node_save_bulk_query()")
-            save_embedding_query = (
-                'WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)'
-                if not has_aoss
-                else ''
-            )
+            save_embedding_queries = []
+            if not has_aoss:
+                save_embedding_queries.append('WITH n, node CALL db.create.setNodeVectorProperty(n, "name_embedding", node.name_embedding)')
+                save_embedding_queries.append('WITH n, node CALL db.create.setNodeVectorProperty(n, "description_embedding", node.description_embedding)')
+            save_embedding_query = '\n                    '.join(save_embedding_queries) if save_embedding_queries else ''
             return (
                 """
                     UNWIND $nodes AS node

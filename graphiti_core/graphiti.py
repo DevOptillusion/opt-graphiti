@@ -1162,8 +1162,12 @@ class Graphiti:
     ) -> AddTripletResults:
         if source_node.name_embedding is None:
             await source_node.generate_name_embedding(self.embedder)
+        if source_node.description_embedding is None and 'Person' in source_node.labels:
+            await source_node.generate_description_embedding(self.embedder)
         if target_node.name_embedding is None:
             await target_node.generate_name_embedding(self.embedder)
+        if target_node.description_embedding is None and 'Person' in target_node.labels:
+            await target_node.generate_description_embedding(self.embedder)
         if edge.fact_embedding is None:
             await edge.generate_embedding(self.embedder)
 

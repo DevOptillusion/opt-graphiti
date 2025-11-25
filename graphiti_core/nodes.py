@@ -472,6 +472,7 @@ class EpisodicNode(Node):
 
 class EntityNode(Node):
     name_embedding: list[float] | None = Field(default=None, description='embedding of the name')
+    description_embedding: list[float] | None = Field(default=None, description='embedding of the description (for Person entities only)')
     summary: str = Field(description='regional summary of surrounding edges', default_factory=str)
     attributes: dict[str, Any] = Field(
         default={}, description='Additional attributes of the node. Dependent on node labels'
@@ -485,6 +486,25 @@ class EntityNode(Node):
         logger.debug(f'embedded {text} in {end - start} ms')
 
         return self.name_embedding
+
+    async def generate_description_embedding(self, embedder: EmbedderClient):
+        """Generate description embedding for Person entities only."""
+        if 'Person' not in self.labels:
+            logger.debug(f'Skipping description embedding for non-Person entity: {self.name}')
+            return None
+
+        description = self.attributes.get('description') if self.attributes else None
+        if not description:
+            logger.debug(f'No description found for Person entity: {self.name}')
+            return None
+
+        start = time()
+        text = str(description).replace('\n', ' ')
+        self.description_embedding = await embedder.create(input_data=[text])
+        end = time()
+        logger.debug(f'embedded description for {self.name} in {end - start} ms')
+
+        return self.description_embedding
 
     async def load_name_embedding(self, driver: GraphDriver):
         if driver.graph_operations_interface:
@@ -520,6 +540,7 @@ class EntityNode(Node):
             'uuid': self.uuid,
             'name': self.name,
             'name_embedding': self.name_embedding,
+            'description_embedding': self.description_embedding,
             'group_id': self.group_id,
             'summary': self.summary,
             'created_at': self.created_at,
@@ -842,3 +863,18 @@ async def create_entity_node_embeddings(embedder: EmbedderClient, nodes: list[En
     name_embeddings = await embedder.create_batch([node.name for node in filtered_nodes])
     for node, name_embedding in zip(filtered_nodes, name_embeddings, strict=True):
         node.name_embedding = name_embedding
+
+    # Generate description embeddings for Person entities
+    person_nodes_with_description = [
+        node for node in filtered_nodes
+        if 'Person' in node.labels
+        and node.description_embedding is None
+        and node.attributes
+        and node.attributes.get('description')
+    ]
+
+    if person_nodes_with_description:
+        descriptions = [str(node.attributes.get('description', '')).replace('\n', ' ') for node in person_nodes_with_description]
+        description_embeddings = await embedder.create_batch(descriptions)
+        for node, description_embedding in zip(person_nodes_with_description, description_embeddings, strict=True):
+            node.description_embedding = description_embedding

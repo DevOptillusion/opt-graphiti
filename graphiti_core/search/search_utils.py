@@ -833,18 +833,24 @@ async def node_similarity_search(
     else:
         label = query_entity_type[0] if query_entity_type else None
         if label == 'Person':
+            # For Person entities, use description_embedding for search (consistent with get_vector_cosine_func_query pattern)
             query = (
                 f"""
-                    // Use an explicit Vector Index call instead of a MATCH full scan
-                    CALL db.index.vector.queryNodes("person_desc_vector", $limit, {search_vector_var})
-                    YIELD node AS n, score
-                    """
-                    + filter_query 
-                    + """
-                    AND score > $min_score
-                    RETURN score,
-                    """
-                    + get_entity_node_return_query(driver.provider)
+                MATCH (n:{label})
+                """
+                + filter_query
+                + """
+                WITH n, """
+                + get_vector_cosine_func_query('n.description_embedding', search_vector_var, driver.provider)
+                + """ AS score
+                WHERE score > $min_score AND n.description_embedding IS NOT NULL
+                RETURN score,
+                """
+                + get_entity_node_return_query(driver.provider)
+                + """
+                ORDER BY score DESC
+                LIMIT $limit
+                """
             )
         else:
             query = (
