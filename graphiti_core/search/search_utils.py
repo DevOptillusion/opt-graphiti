@@ -831,24 +831,40 @@ async def node_similarity_search(
         else:
             return []
     else:
-        query = (
-            f"""
-            MATCH (n:{label})
-            """
-            + filter_query
-            + """
-            WITH n, """
-            + get_vector_cosine_func_query('n.name_embedding', search_vector_var, driver.provider)
-            + """ AS score
-            WHERE score > $min_score
-            RETURN score,
-            """
-            + get_entity_node_return_query(driver.provider)
-            + """
-            ORDER BY score DESC
-            LIMIT $limit
-            """
-        )
+        label = query_entity_type[0] if query_entity_type else None
+        if label == 'Person':
+            query = (
+                f"""
+                    // Use an explicit Vector Index call instead of a MATCH full scan
+                    CALL db.index.vector.queryNodes("person_desc_vector", $limit, {search_vector_var})
+                    YIELD node AS n, score
+                    """
+                    + filter_query 
+                    + """
+                    AND score > $min_score
+                    RETURN score,
+                    """
+                    + get_entity_node_return_query(driver.provider)
+            )
+        else:
+            query = (
+                f"""
+                MATCH (n:{label})
+                """
+                + filter_query
+                + """
+                WITH n, """
+                + get_vector_cosine_func_query('n.name_embedding', search_vector_var, driver.provider)
+                + """ AS score
+                WHERE score > $min_score
+                RETURN score,
+                """
+                + get_entity_node_return_query(driver.provider)
+                + """
+                ORDER BY score DESC
+                LIMIT $limit
+                """
+            )
 
         records, _, _ = await driver.execute_query(
             query,
