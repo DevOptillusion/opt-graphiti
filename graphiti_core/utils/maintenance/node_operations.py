@@ -304,6 +304,8 @@ async def _resolve_with_llm(
                 [(ctx['id'], ctx['name']) for ctx in extracted_nodes_context[-sample_size:]],
             )
 
+    # Build context for existing nodes, excluding embedding vectors
+    # which are large and not useful for LLM deduplication decisions
     existing_nodes_context = [
         {
             **{
@@ -311,7 +313,11 @@ async def _resolve_with_llm(
                 'name': candidate.name,
                 'entity_types': candidate.labels,
             },
-            **candidate.attributes,
+            **{
+                k: v
+                for k, v in candidate.attributes.items()
+                if k not in ('name_embedding', 'description_embedding')
+            },
         }
         for i, candidate in enumerate(indexes.existing_nodes)
     ]
