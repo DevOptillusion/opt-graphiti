@@ -280,7 +280,9 @@ def extract_attributes(context: dict[str, Any]) -> list[Message]:
         Guidelines:
         1. Do not hallucinate entity property values if they cannot be found in the current context.
         2. Only use the provided MESSAGES and ENTITY to set attribute values.
-
+        3. Resolve generic names: If a generic reference (e.g., '陌生男子') corresponds to a specific named entity identified in the text (e.g., 'Paris'), replace the generic name with the specific name in the Person entity.
+        4. Maintain consistency: Update the RelationshipView keys to reflect these specific names. For example, change 'Aria:陌生男子' to 'Aria:Paris' so it matches the updated Person entity.
+        
         <MESSAGES>
         {to_prompt_json(context['previous_episodes'])}
         {to_prompt_json(context['episode_content'])}
