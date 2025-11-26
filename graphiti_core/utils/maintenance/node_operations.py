@@ -542,7 +542,7 @@ async def _extract_entity_attributes(
     llm_response = await llm_client.generate_response(
         prompt_library.extract_nodes.extract_attributes(attributes_context),
         response_model=entity_type,
-        model_size=ModelSize.small,
+        model_size=ModelSize.medium,
         group_id=node.group_id,
         prompt_name='extract_nodes.extract_attributes',
     )
