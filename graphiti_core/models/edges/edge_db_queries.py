@@ -107,8 +107,7 @@ def get_entity_edge_save_query(
         case _:  # Neo4j
             save_embedding_query = (
                 """WITH e, $edge_data.fact_embedding AS fact_emb
-                CALL {
-                    WITH e, fact_emb
+                CALL (e, fact_emb) {
                     WITH e, fact_emb
                     WHERE fact_emb IS NOT NULL
                     CALL db.create.setRelationshipVectorProperty(e, "fact_embedding", fact_emb)
@@ -190,8 +189,7 @@ def get_entity_edge_save_bulk_query(
         case _:
             save_embedding_query = (
                 """WITH rel, edge, edge.fact_embedding AS fact_emb
-                CALL {
-                    WITH rel, fact_emb
+                CALL (rel, fact_emb) {
                     WITH rel, fact_emb
                     WHERE fact_emb IS NOT NULL
                     CALL db.create.setRelationshipVectorProperty(rel, "fact_embedding", fact_emb)

@@ -170,8 +170,7 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
             save_embedding_queries = []
             if not has_aoss:
                 save_embedding_queries.append("""WITH n, $entity_data.name_embedding AS name_emb
-                CALL {
-                    WITH n, name_emb
+                CALL (n, name_emb) {
                     WITH n, name_emb
                     WHERE name_emb IS NOT NULL
                     CALL db.create.setNodeVectorProperty(n, "name_embedding", name_emb)
@@ -179,8 +178,7 @@ def get_entity_node_save_query(provider: GraphProvider, labels: str, has_aoss: b
                 }
                 WITH n""")
                 save_embedding_queries.append("""WITH n, $entity_data.description_embedding AS desc_emb
-                CALL {
-                    WITH n, desc_emb
+                CALL (n, desc_emb) {
                     WITH n, desc_emb
                     WHERE desc_emb IS NOT NULL
                     CALL db.create.setNodeVectorProperty(n, "description_embedding", desc_emb)
@@ -267,8 +265,7 @@ def get_entity_node_save_bulk_query(
             save_embedding_queries = []
             if not has_aoss:
                 save_embedding_queries.append("""WITH n, node, node.name_embedding AS name_emb
-                    CALL {
-                        WITH n, name_emb
+                    CALL (n, name_emb) {
                         WITH n, name_emb
                         WHERE name_emb IS NOT NULL
                         CALL db.create.setNodeVectorProperty(n, "name_embedding", name_emb)
@@ -276,8 +273,7 @@ def get_entity_node_save_bulk_query(
                     }
                     WITH n, node""")
                 save_embedding_queries.append("""WITH n, node, node.description_embedding AS desc_emb
-                    CALL {
-                        WITH n, desc_emb
+                    CALL (n, desc_emb) {
                         WITH n, desc_emb
                         WHERE desc_emb IS NOT NULL
                         CALL db.create.setNodeVectorProperty(n, "description_embedding", desc_emb)
@@ -354,8 +350,7 @@ def get_community_node_save_query(provider: GraphProvider) -> str:
                 MERGE (n:Community {uuid: $uuid})
                 SET n = {uuid: $uuid, name: $name, group_id: $group_id, summary: $summary, created_at: $created_at}
                 WITH n, $name_embedding AS name_emb
-                CALL {
-                    WITH n, name_emb
+                CALL (n, name_emb) {
                     WITH n, name_emb
                     WHERE name_emb IS NOT NULL
                     CALL db.create.setNodeVectorProperty(n, "name_embedding", name_emb)
