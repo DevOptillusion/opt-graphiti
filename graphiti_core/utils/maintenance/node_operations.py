@@ -154,34 +154,6 @@ async def extract_nodes(
                 prompt_name='extract_nodes.extract_json',
             )
 
-        """
-        Manually check llm response: 
-        - remove any entity type person, with name starting with '路人'
-        - keep the node with name '我' but change the name to 'Aria'
-        """
-        llm_response['extracted_entities'] = [
-            entity
-            for entity in llm_response['extracted_entities']
-            if entity['entity_type_id'] != 0 or not entity['name'].startswith('路人')
-        ]
-        if '我' in [
-            entity['name']
-            for entity in llm_response['extracted_entities']
-            if entity['entity_type_id'] == 0
-        ]:
-            llm_response['extracted_entities'] = [
-                entity for entity in llm_response['extracted_entities'] if entity['name'] != '我'
-            ]
-            if 'Aria' not in [
-                entity['name']
-                for entity in llm_response['extracted_entities']
-                if entity['entity_type_id'] == 0
-            ]:
-                llm_response['extracted_entities'].append(
-                    ExtractedEntity(name='Aria', entity_type_id=0)
-                )
-                print('[DEBUG] llm_response after manually checking: ', llm_response)
-
         response_object = ExtractedEntities(**llm_response)
 
         extracted_entities: list[ExtractedEntity] = response_object.extracted_entities
