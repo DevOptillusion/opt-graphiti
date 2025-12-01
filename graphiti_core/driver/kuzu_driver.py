@@ -46,6 +46,7 @@ SCHEMA_QUERIES = """
         labels STRING[],
         created_at TIMESTAMP,
         name_embedding FLOAT[],
+        description_embedding FLOAT[],
         summary STRING,
         attributes STRING
     );

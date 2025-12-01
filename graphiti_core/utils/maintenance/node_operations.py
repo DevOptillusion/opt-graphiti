@@ -154,34 +154,6 @@ async def extract_nodes(
                 prompt_name='extract_nodes.extract_json',
             )
 
-        """
-        Manually check llm response: 
-        - remove any entity type person, with name starting with '路人'
-        - keep the node with name '我' but change the name to 'Aria'
-        """
-        llm_response['extracted_entities'] = [
-            entity
-            for entity in llm_response['extracted_entities']
-            if entity['entity_type_id'] != 0 or not entity['name'].startswith('路人')
-        ]
-        if '我' in [
-            entity['name']
-            for entity in llm_response['extracted_entities']
-            if entity['entity_type_id'] == 0
-        ]:
-            llm_response['extracted_entities'] = [
-                entity for entity in llm_response['extracted_entities'] if entity['name'] != '我'
-            ]
-            if 'Aria' not in [
-                entity['name']
-                for entity in llm_response['extracted_entities']
-                if entity['entity_type_id'] == 0
-            ]:
-                llm_response['extracted_entities'].append(
-                    ExtractedEntity(name='Aria', entity_type_id=0)
-                )
-                print('[DEBUG] llm_response after manually checking: ', llm_response)
-
         response_object = ExtractedEntities(**llm_response)
 
         extracted_entities: list[ExtractedEntity] = response_object.extracted_entities
@@ -332,6 +304,8 @@ async def _resolve_with_llm(
                 [(ctx['id'], ctx['name']) for ctx in extracted_nodes_context[-sample_size:]],
             )
 
+    # Build context for existing nodes, excluding embedding vectors
+    # which are large and not useful for LLM deduplication decisions
     existing_nodes_context = [
         {
             **{
@@ -339,7 +313,11 @@ async def _resolve_with_llm(
                 'name': candidate.name,
                 'entity_types': candidate.labels,
             },
-            **candidate.attributes,
+            **{
+                k: v
+                for k, v in candidate.attributes.items()
+                if k not in ('name_embedding', 'description_embedding')
+            },
         }
         for i, candidate in enumerate(indexes.existing_nodes)
     ]
@@ -564,7 +542,7 @@ async def _extract_entity_attributes(
     llm_response = await llm_client.generate_response(
         prompt_library.extract_nodes.extract_attributes(attributes_context),
         response_model=entity_type,
-        model_size=ModelSize.small,
+        model_size=ModelSize.medium,
         group_id=node.group_id,
         prompt_name='extract_nodes.extract_attributes',
     )

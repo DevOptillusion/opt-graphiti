@@ -98,6 +98,7 @@ from graphiti_core.utils.maintenance.node_operations import (
 )
 from graphiti_core.utils.ontology_utils.entity_types_utils import validate_entity_types
 
+DESCRIPTION_EMBEDDING_ENTITY_TYPE = 'Person'
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -1162,8 +1163,12 @@ class Graphiti:
     ) -> AddTripletResults:
         if source_node.name_embedding is None:
             await source_node.generate_name_embedding(self.embedder)
+        if source_node.description_embedding is None and DESCRIPTION_EMBEDDING_ENTITY_TYPE in source_node.labels:
+            await source_node.generate_description_embedding(self.embedder)
         if target_node.name_embedding is None:
             await target_node.generate_name_embedding(self.embedder)
+        if target_node.description_embedding is None and DESCRIPTION_EMBEDDING_ENTITY_TYPE in target_node.labels:
+            await target_node.generate_description_embedding(self.embedder)
         if edge.fact_embedding is None:
             await edge.generate_embedding(self.embedder)
 

@@ -61,7 +61,7 @@ from graphiti_core.search.search_filters import (
 logger = logging.getLogger(__name__)
 
 RELEVANT_SCHEMA_LIMIT = 10
-DEFAULT_MIN_SCORE = 0.8  # change to 0.8 from default 0.6
+DEFAULT_MIN_SCORE = 0.6 
 DEFAULT_MMR_LAMBDA = 0.5
 MAX_SEARCH_DEPTH = 3
 MAX_QUERY_LENGTH = 128
@@ -831,24 +831,46 @@ async def node_similarity_search(
         else:
             return []
     else:
-        query = (
-            f"""
-            MATCH (n:{label})
-            """
-            + filter_query
-            + """
-            WITH n, """
-            + get_vector_cosine_func_query('n.name_embedding', search_vector_var, driver.provider)
-            + """ AS score
-            WHERE score > $min_score
-            RETURN score,
-            """
-            + get_entity_node_return_query(driver.provider)
-            + """
-            ORDER BY score DESC
-            LIMIT $limit
-            """
-        )
+        label = query_entity_type[0] if query_entity_type else None
+        if label == 'Person':
+            # For Person entities, use description_embedding for search (consistent with get_vector_cosine_func_query pattern)
+            query = (
+                f"""
+                MATCH (n:{label})
+                """
+                + filter_query
+                + """
+                WITH n, """
+                + get_vector_cosine_func_query('n.description_embedding', search_vector_var, driver.provider)
+                + """ AS score
+                WHERE score > $min_score AND n.description_embedding IS NOT NULL
+                RETURN score,
+                """
+                + get_entity_node_return_query(driver.provider)
+                + """
+                ORDER BY score DESC
+                LIMIT $limit
+                """
+            )
+        else:
+            query = (
+                f"""
+                MATCH (n:{label})
+                """
+                + filter_query
+                + """
+                WITH n, """
+                + get_vector_cosine_func_query('n.name_embedding', search_vector_var, driver.provider)
+                + """ AS score
+                WHERE score > $min_score
+                RETURN score,
+                """
+                + get_entity_node_return_query(driver.provider)
+                + """
+                ORDER BY score DESC
+                LIMIT $limit
+                """
+            )
 
         records, _, _ = await driver.execute_query(
             query,
