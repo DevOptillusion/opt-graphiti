@@ -749,7 +749,7 @@ class Graphiti:
                 )
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
                 if duplicates:
-                    logger.info(f'Duplicate nodes from dedupe search: {[(source.name, source.entity_type, target.name, target.entity_type)for source,target in duplicates]}')
+                    logger.info(f'Duplicate nodes from dedupe search: {[(source.name, source.labels, target.name, target.labels)for source,target in duplicates]}')
                 # ==============================================================================
                 # Fuzzy  Name Collision Detection Hook
                 # ==============================================================================
