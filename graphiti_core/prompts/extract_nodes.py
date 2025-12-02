@@ -187,7 +187,7 @@ Indicate the classified entity type by providing its entity_type_id.
 Guidelines:
 1. **Person Extraction**: 
    - if you see '我'as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person. 
-   - Aria is also the narrator, so 旁白 refers to Aria as well.
+   - Aria is also the narrator, so 旁白 refers to Aria as well, but do not extract '旁白' as a separate person from Aria.
    - Do not extract unimportant person with name like '路人甲','工作人员'. 
    - Please pay attention to unkown persons that whether you can find the name in the text.
 2. **RelationshipView Extraction**: 
