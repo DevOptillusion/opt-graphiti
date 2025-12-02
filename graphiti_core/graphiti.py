@@ -1386,5 +1386,4 @@ class Graphiti:
                     'keep_uuid': node_to_keep.uuid,
                     'discard_uuid': node_to_remove.uuid,
                 },
-                routing_='r',
             )
