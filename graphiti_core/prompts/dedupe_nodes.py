@@ -81,14 +81,16 @@ def node(context: dict[str, Any]) -> list[Message]:
         </EXISTING ENTITIES>
         
         Given the above EXISTING ENTITIES and their attributes, MESSAGE, and PREVIOUS MESSAGES; Determine if the NEW ENTITY extracted from the conversation
-        is a duplicate entity of one of the EXISTING ENTITIES.
+        is a duplicate entity of one of the EXISTING ENTITIES with the same entity_types.
         
         Entities should only be considered duplicates if they refer to the *same real-world object or concept*.
         Semantic Equivalence: if a descriptive label in existing_entities clearly refers to a named entity in context, treat them as duplicates.
+        - If the New Entity is a generic label (e.g., "The CEO") and the Existing Entity is the specific name (e.g., "Satya Nadella"), and the context confirms they are the same person -> **DUPLICATE**. 
 
         Do NOT mark entities as duplicates if:
         - They are related but distinct.
         - They have similar names or purposes but refer to separate instances or concepts.
+        - They have different entity_types.
 
          TASK:
          1. Compare `new_entity` against each item in `existing_entities`.

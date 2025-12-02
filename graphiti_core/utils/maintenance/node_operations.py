@@ -208,7 +208,6 @@ async def extract_nodes(
         extracted_nodes.append(new_node)
         logger.debug(f'Created new node: {new_node.name} (UUID: {new_node.uuid})')
 
-    logger.info(f'Extracted nodes: {[n.name for n in extracted_nodes]}')
 
     return extracted_nodes
 
