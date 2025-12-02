@@ -749,7 +749,7 @@ class Graphiti:
                 )
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
                 if duplicates:
-                    logger.info(f'Duplicate nodes before Fuzzy  Name Collision Detection Hook: {[(source.name,target.name)for source,target in duplicates]}')
+                    logger.info(f'Duplicate nodes from dedupe search: {[(source.name, source.entity_type, target.name, target.entity_type)for source,target in duplicates]}')
                 # ==============================================================================
                 # Fuzzy  Name Collision Detection Hook
                 # ==============================================================================
@@ -872,7 +872,7 @@ class Graphiti:
                     
                     logger.info(f"Cleanup: Pruned {original_count - len(nodes)} merged/deleted nodes from the processing queue.")
                     logger.info(f'=============End  of Fuzzy Collision Merge==================')
-                    
+
                 # Extract and resolve edges in parallel with attribute extraction
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
                     episode,
