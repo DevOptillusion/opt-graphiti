@@ -756,6 +756,7 @@ class Graphiti:
                 # Threshold: 0.0 to 1.0 (1.0 is exact match). 
                 # 0.85 is usually a good balance for names (catches "Paris" vs "Parris").
                 DISTANCE_THRESHOLD = 0.15
+                fuzzy_collision = []
 
                 for node in nodes:
                     if node.uuid and node.name:
@@ -839,7 +840,7 @@ class Graphiti:
                                 )
                                 
                                 # Add to merge queue
-                                duplicates.append((other_node_obj, node))
+                                fuzzy_collision.append((other_node_obj, node))
                                 
                         except Exception as e:
                             # Fallback mechanism if APOC is missing or query fails
@@ -849,12 +850,12 @@ class Graphiti:
                 # ==============================================================================
                 # [Snippet End]
                 # ==============================================================================
-                if duplicates:
-                    logger.info(f'Duplicate nodes: {[(source.name,target.name)for source,target in duplicates]}')
+                if fuzzy_collision:
+                    logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in duplicates]}')
                     logger.info(f'Executing immediate merge for {len(duplicates)} pairs...')
 
                     # This function physically updates the graph and deletes the 'source' nodes
-                    await self.merge_duplicate_nodes(duplicates)
+                    await self.merge_duplicate_nodes(fuzzy_collision)
 
                     # 4. Cleanup Processing Queue
                     # The 'duplicates' logic merged some nodes and deleted them.
@@ -862,7 +863,7 @@ class Graphiti:
                     # errors in subsequent steps (Attribute Extraction/Saving).
                     
                     # Identify UUIDs of nodes that were just deleted (the first item in the tuple)
-                    sacrificed_uuids = {src.uuid for src, target in duplicates if src.uuid}
+                    sacrificed_uuids = {src.uuid for src, target in fuzzy_collision if src.uuid}
                     
                     original_count = len(nodes)
                     # Filter the list: Keep only nodes that are NOT in the sacrificed set
