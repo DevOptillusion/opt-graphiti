@@ -778,14 +778,15 @@ class Graphiti:
 
                         try:
                             # Execute Fuzzy Search
-                            collision = await self.clients.neo4j.execute_query(
+                            
+                            collision = await self.driver.execute_query(
                                 similarity_query,
-                                {
-                                    "name": node.name, 
+                                params={
+                                    "name": node.name,
                                     "uuid": node.uuid,
                                     "threshold": NAME_SIMILARITY_THRESHOLD,
-                                    # "labels": node.labels # Uncomment if you want to restrict by type
-                                }
+                                    # "labels": node.labels  # Uncomment if you want to restrict by type
+                                },
                             )
 
                             if collision:
@@ -1355,15 +1356,14 @@ class Graphiti:
                 continue
 
             query = """
-            MATCH (keep:Entity {uuid: $keep_uuid})
-            MATCH (discard:Entity {uuid: $discard_uuid})
+            MATCH (keep:Person {uuid: $keep_uuid})
+            MATCH (discard:Person {uuid: $discard_uuid})
             
             // APOC Merge
             // The first node in the list [keep, discard] is the "primary" that survives.
             CALL apoc.refactor.mergeNodes([keep, discard], {
                 properties: {
                     // Rule: If both have this property, combine them into a list (great for history)
-                    shared_history: 'combine',
                     aliases: 'combine',
                     
                     // Rule: For everything else, keep the value from the 'keep' node
@@ -1379,8 +1379,12 @@ class Graphiti:
             YIELD node
             RETURN node
             """
-            
-            await self.clients.neo4j.execute_query(
-                query, 
-                {"keep_uuid": node_to_keep.uuid, "discard_uuid": node_to_remove.uuid}
+
+            await self.driver.execute_query(
+                query,
+                params={
+                    'keep_uuid': node_to_keep.uuid,
+                    'discard_uuid': node_to_remove.uuid,
+                },
+                routing_='r',
             )
