@@ -750,15 +750,23 @@ class Graphiti:
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
                 if duplicates:
                     logger.info(f'Duplicate nodes from dedupe search: {[(source.name, source.labels, target.name, target.labels)for source,target in duplicates]}')
+                
+                # Extract node attributes
+                hydrated_nodes = await extract_attributes_from_nodes(
+                    self.clients, nodes, episode, previous_episodes, entity_types
+                )
+                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels) for n in hydrated_nodes]}')
+                
                 # ==============================================================================
                 # Fuzzy  Name Collision Detection Hook
                 # ==============================================================================
                 # Threshold: 0.0 to 1.0 (1.0 is exact match). 
                 # 0.85 is usually a good balance for names (catches "Paris" vs "Parris").
+                # Note: This runs AFTER attribute extraction so nodes have complete data for merge decisions
                 DISTANCE_THRESHOLD = 0.15
                 fuzzy_collision = []
 
-                for node in nodes:
+                for node in hydrated_nodes:
                     if node.uuid and node.name:
                         # We use APOC to check for similarity.
                         # If APOC is not available, fallback to: toLower(n.name) = toLower($name)
@@ -858,22 +866,22 @@ class Graphiti:
                     # This function physically updates the graph and deletes the 'source' nodes
                     await self.merge_duplicate_nodes(fuzzy_collision)
 
-                    # 4. Cleanup Processing Queue
-                    # The 'duplicates' logic merged some nodes and deleted them.
-                    # We must remove these deleted nodes from the 'nodes' list to prevent 
-                    # errors in subsequent steps (Attribute Extraction/Saving).
+                    # Cleanup Processing Queue
+                    # The fuzzy collision logic merged some nodes and deleted them.
+                    # We must remove these deleted nodes from the 'hydrated_nodes' list to prevent 
+                    # errors in subsequent steps (Saving).
                     
                     # Identify UUIDs of nodes that were just deleted (the first item in the tuple)
                     sacrificed_uuids = {src.uuid for src, target in fuzzy_collision if src.uuid}
                     
-                    original_count = len(nodes)
+                    original_count = len(hydrated_nodes)
                     # Filter the list: Keep only nodes that are NOT in the sacrificed set
-                    nodes = [n for n in nodes if n.uuid not in sacrificed_uuids]
+                    hydrated_nodes = [n for n in hydrated_nodes if n.uuid not in sacrificed_uuids]
                     
-                    logger.info(f"Cleanup: Pruned {original_count - len(nodes)} merged/deleted nodes from the processing queue.")
+                    logger.info(f"Cleanup: Pruned {original_count - len(hydrated_nodes)} merged/deleted nodes from the processing queue.")
                     logger.info(f'=============End  of Fuzzy Collision Merge==================')
 
-                # Extract and resolve edges in parallel with attribute extraction
+                # Extract and resolve edges
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
                     episode,
                     extracted_nodes,
@@ -881,19 +889,13 @@ class Graphiti:
                     edge_type_map or edge_type_map_default,
                     group_id,
                     edge_types,
-                    nodes,
+                    hydrated_nodes,
                     uuid_map,
                 )
                 if resolved_edges:
-                    logger.info(f'Step 4: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
+                    logger.info(f'Step 5: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
                 if invalidated_edges:
                     logger.info(f'{len(invalidated_edges)} Invalidated edges: {[(e.name, e.fact) for e in invalidated_edges]}')
-
-                # Extract node attributes
-                hydrated_nodes = await extract_attributes_from_nodes(
-                    self.clients, nodes, episode, previous_episodes, entity_types
-                )
-                logger.info(f'Step 5: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels) for n in hydrated_nodes]}')
                 entity_edges = resolved_edges + invalidated_edges
 
                 # Process and save episode data
