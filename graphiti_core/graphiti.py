@@ -817,8 +817,8 @@ class Graphiti:
                                 other_group_id = records[0].get('n.group_id', node.group_id)
                                 score = records[0]['score']
                                 
-                                # Debug: Log if score is exactly 1.00 (exact match)
-                                if score >= 1.0:
+                                # Debug: Log if score is exactly 0.00 (exact match)
+                                if score == 0.0:
                                     logger.debug(
                                         f"Exact name match found: '{node.name}' (uuid: {node.uuid}) "
                                         f"matches '{other_name}' (uuid: {other_uuid})"
