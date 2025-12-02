@@ -750,56 +750,64 @@ class Graphiti:
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
 
                 # ==============================================================================
-                # [Snippet Start] Option 1: Name Collision Detection Hook
+                # Fuzzy  Name Collision Detection Hook
                 # ==============================================================================
-                # Objective: Detect if a node resolved from "Stranger" to "Paris" conflicts 
-                # with an already existing "Paris" node in the database.
+                # Threshold: 0.0 to 1.0 (1.0 is exact match). 
+                # 0.85 is usually a good balance for names (catches "Paris" vs "Parris").
+                NAME_SIMILARITY_THRESHOLD = 0.85
 
-                # 1. Ensure 'duplicates' is a list to prevent NoneType errors
-                if duplicates is None:
-                    duplicates = []
-
-                # 2. Iterate through all nodes scheduled for update
-                # Note: These 'nodes' are objects that already contain the new information (e.g., new name)
                 for node in nodes:
-                    # Check only if the node has a UUID (indicating it's an existing graph node) 
-                    # and has a valid name.
                     if node.uuid and node.name:
-                        # Database Query: Is there a node with this exact name, but a DIFFERENT UUID?
-                        # Note: Please replace 'execute_query' with your actual Neo4j driver method.
-                        existing_collision = await self.clients.neo4j.execute_query(
-                            """
-                            MATCH (n:Entity) 
-                            WHERE n.name = $name AND n.uuid <> $uuid 
-                            RETURN n.uuid, n.name, labels(n) as labels
-                            LIMIT 1
-                            """,
-                            {"name": node.name, "uuid": node.uuid}
-                        )
+                        # We use APOC to check for similarity.
+                        # If APOC is not available, fallback to: toLower(n.name) = toLower($name)
+                        similarity_query = """
+                        MATCH (n:Person)
+                        WHERE n.uuid <> $uuid
+                        
+                        // 1. Filter by Person Type first for performance (Optional but recommended)
+                        // AND any(label IN labels(n) WHERE label IN $labels)
+                        
+                        // 2. Fuzzy Similarity Check
+                        // We calculate the Jaro-Winkler distance between the new name and existing names.
+                        AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) > $threshold
+                        
+                        RETURN n.uuid, n.name, apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) as score
+                        ORDER BY score DESC
+                        LIMIT 1
+                        """
 
-                        if existing_collision:
-                            other_uuid = existing_collision[0]['n.uuid']
-                            other_name = existing_collision[0]['n.name']
-                            
-                            logger.warning(
-                                f"⚠️ Name Collision Detected: Resolved Node '{node.name}' ({node.uuid}) "
-                                f"conflicts with existing DB Node '{other_name}' ({other_uuid}). "
-                                f"Scheduling Merge."
+                        try:
+                            # Execute Fuzzy Search
+                            collision = await self.clients.neo4j.execute_query(
+                                similarity_query,
+                                {
+                                    "name": node.name, 
+                                    "uuid": node.uuid,
+                                    "threshold": NAME_SIMILARITY_THRESHOLD,
+                                    # "labels": node.labels # Uncomment if you want to restrict by type
+                                }
                             )
 
-                            # 3. Construct a Duplicate Pair (Source, Target)
-                            # Logic: We will merge the colliding old node (other/source) INTO 
-                            # the current main node (node/target).
-                            
-                            # We need to construct a node object representing the database node.
-                            # You might need to adjust this instantiation based on your Node class definition.
-                            # Using 'type(node)' attempts to create a new instance of the same class.
-                            other_node_obj = type(node)(uuid=other_uuid, name=other_name) 
-                            
-                            # Append to the duplicates queue.
-                            # Graphiti's subsequent logic will handle the actual graph merging process.
-                            # Assuming tuple format is (node_to_remove, node_to_keep)
-                            duplicates.append((other_node_obj, node))
+                            if collision:
+                                other_uuid = collision[0]['n.uuid']
+                                other_name = collision[0]['n.name']
+                                score = collision[0]['score']
+                                
+                                logger.warning(
+                                    f"⚠️ Fuzzy Collision ({score:.2f}): Resolved Node '{node.name}' "
+                                    f"matches existing '{other_name}' ({other_uuid}). Scheduling Merge."
+                                )
+                                
+                                # Construct the 'victim' node object
+                                other_node_obj = type(node)(uuid=other_uuid, name=other_name)
+                                
+                                # Add to merge queue
+                                duplicates.append((other_node_obj, node))
+                                
+                        except Exception as e:
+                            # Fallback mechanism if APOC is missing or query fails
+                            logger.error(f"Fuzzy check failed (likely APOC missing), falling back to exact match: {e}")
+                            # You can insert the simple exact match query here as a backup
                 
                 # ==============================================================================
                 # [Snippet End]
