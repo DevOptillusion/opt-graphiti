@@ -398,6 +398,22 @@ async def _resolve_with_llm(
             )
             resolved_node = extracted_node
 
+        # Validate that duplicates have matching entity types
+        if resolved_node.uuid != extracted_node.uuid:
+            # This is a duplicate - check if entity types match
+            if extracted_node.labels[0] != resolved_node.labels[0]:
+                # Entity types don't match - reject the duplicate resolution
+                logger.warning(
+                    'Rejecting duplicate resolution: entity types do not match. '
+                    'Extracted node "%s" (type: %s) vs resolved node "%s" (type: %s)',
+                    extracted_node.name,
+                    extracted_node.labels[0],
+                    resolved_node.name,
+                    resolved_node.labels[0],
+                )
+                # Treat as no duplicate
+                resolved_node = extracted_node
+
         state.resolved_nodes[original_index] = resolved_node
         state.uuid_map[extracted_node.uuid] = resolved_node.uuid
         if resolved_node.uuid != extracted_node.uuid:
@@ -420,7 +436,7 @@ async def resolve_extracted_nodes(
         extracted_nodes,
         existing_nodes_override,
     )
-    logger.info(f'[debug]Existing nodes from dedupe search: {[(node.name, node.labels)for node in existing_nodes]}')
+    logger.info(f'[debug]Existing candidate nodes from dedupe search: {[(node.name, node.labels)for node in existing_nodes]}')
     indexes: DedupCandidateIndexes = _build_candidate_indexes(existing_nodes)
 
     state = DedupResolutionState(
