@@ -307,12 +307,11 @@ def extract_summary(context: dict[str, Any]) -> list[Message]:
             content=f"""
         Given the MESSAGES and the ENTITY, update the summary that combines relevant information about the entity
         from the messages and relevant information from the existing summary.
-        Please restrict the summary to be no more than 3 sentences.
+        Please restrict the summary to be no more than 2 sentences.
 
         {summary_instructions}
 
         <MESSAGES>
-        {to_prompt_json(context['previous_episodes'])}
         {to_prompt_json(context['episode_content'])}
         </MESSAGES>
 
