@@ -748,9 +748,83 @@ class Graphiti:
                     entity_types,
                 )
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
+
+                # ==============================================================================
+                # [Snippet Start] Option 1: Name Collision Detection Hook
+                # ==============================================================================
+                # Objective: Detect if a node resolved from "Stranger" to "Paris" conflicts 
+                # with an already existing "Paris" node in the database.
+
+                # 1. Ensure 'duplicates' is a list to prevent NoneType errors
+                if duplicates is None:
+                    duplicates = []
+
+                # 2. Iterate through all nodes scheduled for update
+                # Note: These 'nodes' are objects that already contain the new information (e.g., new name)
+                for node in nodes:
+                    # Check only if the node has a UUID (indicating it's an existing graph node) 
+                    # and has a valid name.
+                    if node.uuid and node.name:
+                        # Database Query: Is there a node with this exact name, but a DIFFERENT UUID?
+                        # Note: Please replace 'execute_query' with your actual Neo4j driver method.
+                        existing_collision = await self.clients.neo4j.execute_query(
+                            """
+                            MATCH (n:Entity) 
+                            WHERE n.name = $name AND n.uuid <> $uuid 
+                            RETURN n.uuid, n.name, labels(n) as labels
+                            LIMIT 1
+                            """,
+                            {"name": node.name, "uuid": node.uuid}
+                        )
+
+                        if existing_collision:
+                            other_uuid = existing_collision[0]['n.uuid']
+                            other_name = existing_collision[0]['n.name']
+                            
+                            logger.warning(
+                                f"⚠️ Name Collision Detected: Resolved Node '{node.name}' ({node.uuid}) "
+                                f"conflicts with existing DB Node '{other_name}' ({other_uuid}). "
+                                f"Scheduling Merge."
+                            )
+
+                            # 3. Construct a Duplicate Pair (Source, Target)
+                            # Logic: We will merge the colliding old node (other/source) INTO 
+                            # the current main node (node/target).
+                            
+                            # We need to construct a node object representing the database node.
+                            # You might need to adjust this instantiation based on your Node class definition.
+                            # Using 'type(node)' attempts to create a new instance of the same class.
+                            other_node_obj = type(node)(uuid=other_uuid, name=other_name) 
+                            
+                            # Append to the duplicates queue.
+                            # Graphiti's subsequent logic will handle the actual graph merging process.
+                            # Assuming tuple format is (node_to_remove, node_to_keep)
+                            duplicates.append((other_node_obj, node))
+                
+                # ==============================================================================
+                # [Snippet End]
+                # ==============================================================================
                 if duplicates:
                     logger.info(f'Duplicate nodes: {[(source.name,target.name)for source,target in duplicates]}')
+                    logger.info(f'Executing immediate merge for {len(duplicates)} pairs...')
 
+                    # This function physically updates the graph and deletes the 'source' nodes
+                    await self.merge_duplicate_nodes(duplicates)
+
+                    # 4. Cleanup Processing Queue
+                    # The 'duplicates' logic merged some nodes and deleted them.
+                    # We must remove these deleted nodes from the 'nodes' list to prevent 
+                    # errors in subsequent steps (Attribute Extraction/Saving).
+                    
+                    # Identify UUIDs of nodes that were just deleted (the first item in the tuple)
+                    sacrificed_uuids = {src.uuid for src, target in duplicates if src.uuid}
+                    
+                    original_count = len(nodes)
+                    # Filter the list: Keep only nodes that are NOT in the sacrificed set
+                    nodes = [n for n in nodes if n.uuid not in sacrificed_uuids]
+                    
+                    logger.info(f"Cleanup: Pruned {original_count - len(nodes)} merged/deleted nodes from the processing queue.")
+                
                 # Extract and resolve edges in parallel with attribute extraction
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
                     episode,
@@ -1257,3 +1331,48 @@ class Graphiti:
         await Node.delete_by_uuids(self.driver, [node.uuid for node in nodes_to_delete])
 
         await episode.delete(self.driver)
+
+    async def merge_duplicate_nodes(self, duplicates):
+        """
+        duplicates: List of tuples [(node_to_remove, node_to_keep), ...]
+        """
+        if not duplicates:
+            return
+
+        # We iterate through the pairs
+        for node_to_remove, node_to_keep in duplicates:
+            
+            # Check if both have UUIDs (safety check)
+            if not node_to_remove.uuid or not node_to_keep.uuid:
+                continue
+
+            query = """
+            MATCH (keep:Entity {uuid: $keep_uuid})
+            MATCH (discard:Entity {uuid: $discard_uuid})
+            
+            // APOC Merge
+            // The first node in the list [keep, discard] is the "primary" that survives.
+            CALL apoc.refactor.mergeNodes([keep, discard], {
+                properties: {
+                    // Rule: If both have this property, combine them into a list (great for history)
+                    shared_history: 'combine',
+                    aliases: 'combine',
+                    
+                    // Rule: For everything else, keep the value from the 'keep' node
+                    // 'discard' here means "discard the incoming value", keeping the original
+                    name: 'discard', 
+                    description: 'discard',
+                    
+                    // Catch-all for other properties
+                    `.*`: 'discard'
+                },
+                mergeRels: true
+            })
+            YIELD node
+            RETURN node
+            """
+            
+            await self.clients.neo4j.execute_query(
+                query, 
+                {"keep_uuid": node_to_keep.uuid, "discard_uuid": node_to_remove.uuid}
+            )
