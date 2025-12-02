@@ -779,7 +779,7 @@ class Graphiti:
                         try:
                             # Execute Fuzzy Search
                             
-                            collision = await self.driver.execute_query(
+                            result = await self.driver.execute_query(
                                 similarity_query,
                                 params={
                                     "name": node.name,
@@ -789,10 +789,26 @@ class Graphiti:
                                 },
                             )
 
-                            if collision:
-                                other_uuid = collision[0]['n.uuid']
-                                other_name = collision[0]['n.name']
-                                score = collision[0]['score']
+                            # Extract records from Neo4j EagerResult
+                            records = []
+                            if hasattr(result, 'records'):
+                                # Neo4j EagerResult format - extract records
+                                for record in result.records:
+                                    records.append({
+                                        'n.uuid': record['n.uuid'],
+                                        'n.name': record['n.name'],
+                                        'score': record['score']
+                                    })
+                            elif isinstance(result, tuple) and len(result) > 0:
+                                # Some drivers return (records, _, _)
+                                records = result[0] if result[0] else []
+                            elif isinstance(result, list):
+                                records = result
+
+                            if records:
+                                other_uuid = records[0]['n.uuid']
+                                other_name = records[0]['n.name']
+                                score = records[0]['score']
                                 
                                 logger.warning(
                                     f"⚠️ Fuzzy Collision ({score:.2f}): Resolved Node '{node.name}' "
