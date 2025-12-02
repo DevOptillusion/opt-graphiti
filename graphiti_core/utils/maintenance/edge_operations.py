@@ -761,7 +761,7 @@ async def filter_existing_duplicate_of_edges(
         else:
             query: LiteralString = """
                 UNWIND $duplicate_node_uuids AS duplicate_tuple
-                MATCH (n:Entity {uuid: duplicate_tuple[0]})-[r:RELATES_TO {name: 'IS_DUPLICATE_OF'}]->(m:Entity {uuid: duplicate_tuple[1]})
+                MATCH (n {uuid: duplicate_tuple[0]})-[r {name: 'IS_DUPLICATE_OF'}]->(m {uuid: duplicate_tuple[1]})
                 RETURN DISTINCT
                     n.uuid AS source_uuid,
                     m.uuid AS target_uuid

@@ -55,6 +55,8 @@ from graphiti_core.utils.maintenance.edge_operations import (
 )
 from graphiti_core.utils.text_utils import MAX_SUMMARY_CHARS, truncate_at_sentence
 
+from graphiti_core.driver.driver import GraphDriver, GraphProvider
+
 logger = logging.getLogger(__name__)
 
 NodeSummaryFilter = Callable[[EntityNode], Awaitable[bool]]
@@ -419,7 +421,7 @@ async def resolve_extracted_nodes(
         extracted_nodes,
         existing_nodes_override,
     )
-
+    logger.info(f'[debug]Existing nodes from dedupe search: {[(node.name, node.labels)for node in existing_nodes]}')
     indexes: DedupCandidateIndexes = _build_candidate_indexes(existing_nodes)
 
     state = DedupResolutionState(
