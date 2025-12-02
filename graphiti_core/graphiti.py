@@ -754,7 +754,7 @@ class Graphiti:
                 # ==============================================================================
                 # Threshold: 0.0 to 1.0 (1.0 is exact match). 
                 # 0.85 is usually a good balance for names (catches "Paris" vs "Parris").
-                NAME_SIMILARITY_THRESHOLD = 0.85
+                DISTANCE_THRESHOLD = 0.15
 
                 for node in nodes:
                     if node.uuid and node.name:
@@ -766,7 +766,8 @@ class Graphiti:
                         query_params = {
                             "name": node.name,
                             "uuid": node.uuid,
-                            "threshold": NAME_SIMILARITY_THRESHOLD,
+                            "group_id": node.group_id,
+                            "threshold": DISTANCE_THRESHOLD,
                         }
                         
                         if node.labels:
@@ -777,9 +778,10 @@ class Graphiti:
                         similarity_query = f"""
                         MATCH (n)
                         WHERE n.uuid <> $uuid
+                        AND n.group_id = $group_id
                         {label_filter}
-                        AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) > $threshold
-                        RETURN n.uuid, n.name, apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) as score
+                        AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) < $threshold
+                        RETURN n.uuid, n.name, n.group_id, apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) as score
                         ORDER BY score DESC
                         LIMIT 1
                         """
@@ -799,6 +801,7 @@ class Graphiti:
                                     records.append({
                                         'n.uuid': record['n.uuid'],
                                         'n.name': record['n.name'],
+                                        'n.group_id': record.get('n.group_id', node.group_id),  # Fallback to current node's group_id
                                         'score': record['score']
                                     })
                             elif isinstance(result, tuple) and len(result) > 0:
@@ -810,6 +813,7 @@ class Graphiti:
                             if records:
                                 other_uuid = records[0]['n.uuid']
                                 other_name = records[0]['n.name']
+                                other_group_id = records[0].get('n.group_id', node.group_id)
                                 score = records[0]['score']
                                 
                                 # Debug: Log if score is exactly 1.00 (exact match)
@@ -825,8 +829,13 @@ class Graphiti:
                                     f"(uuid: {other_uuid}). Scheduling Merge."
                                 )
                                 
-                                # Construct the 'victim' node object
-                                other_node_obj = type(node)(uuid=other_uuid, name=other_name)
+                                # Construct the 'victim' node object with required fields
+                                other_node_obj = type(node)(
+                                    uuid=other_uuid,
+                                    name=other_name,
+                                    group_id=other_group_id,
+                                    labels=[],  # Will be populated from database if needed
+                                )
                                 
                                 # Add to merge queue
                                 duplicates.append((other_node_obj, node))
