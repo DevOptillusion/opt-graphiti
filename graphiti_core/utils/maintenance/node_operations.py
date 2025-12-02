@@ -58,7 +58,6 @@ from graphiti_core.utils.text_utils import MAX_SUMMARY_CHARS, truncate_at_senten
 logger = logging.getLogger(__name__)
 
 NodeSummaryFilter = Callable[[EntityNode], Awaitable[bool]]
-NodeSummaryFilter = False  # default to not summarize nodes
 
 async def extract_nodes_reflexion(
     llm_client: LLMClient,
@@ -509,9 +508,9 @@ async def extract_attributes_from_node(
     )
 
     # Extract summary if needed
-    await _extract_entity_summary(
-        llm_client, node, episode, previous_episodes, should_summarize_node
-    )
+    # await _extract_entity_summary(
+    #     llm_client, node, episode, previous_episodes, should_summarize_node
+    # )
 
     node.attributes.update(llm_response)
 
