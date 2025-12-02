@@ -760,17 +760,25 @@ class Graphiti:
                     if node.uuid and node.name:
                         # We use APOC to check for similarity.
                         # If APOC is not available, fallback to: toLower(n.name) = toLower($name)
-                        similarity_query = """
-                        MATCH (n:Person)
+                        
+                        # Build label filter condition (only if labels are provided)
+                        label_filter = ""
+                        query_params = {
+                            "name": node.name,
+                            "uuid": node.uuid,
+                            "threshold": NAME_SIMILARITY_THRESHOLD,
+                        }
+                        
+                        if node.labels:
+                            # Filter by matching entity types for better accuracy
+                            label_filter = "AND any(label IN labels(n) WHERE label IN $labels)"
+                            query_params["labels"] = node.labels
+                        
+                        similarity_query = f"""
+                        MATCH (n)
                         WHERE n.uuid <> $uuid
-                        
-                        // 1. Filter by Person Type first for performance (Optional but recommended)
-                        // AND any(label IN labels(n) WHERE label IN $labels)
-                        
-                        // 2. Fuzzy Similarity Check
-                        // We calculate the Jaro-Winkler distance between the new name and existing names.
+                        {label_filter}
                         AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) > $threshold
-                        
                         RETURN n.uuid, n.name, apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) as score
                         ORDER BY score DESC
                         LIMIT 1
@@ -778,15 +786,9 @@ class Graphiti:
 
                         try:
                             # Execute Fuzzy Search
-                            
                             result = await self.driver.execute_query(
                                 similarity_query,
-                                params={
-                                    "name": node.name,
-                                    "uuid": node.uuid,
-                                    "threshold": NAME_SIMILARITY_THRESHOLD,
-                                    # "labels": node.labels  # Uncomment if you want to restrict by type
-                                },
+                                params=query_params,
                             )
 
                             # Extract records from Neo4j EagerResult
@@ -810,9 +812,17 @@ class Graphiti:
                                 other_name = records[0]['n.name']
                                 score = records[0]['score']
                                 
+                                # Debug: Log if score is exactly 1.00 (exact match)
+                                if score >= 1.0:
+                                    logger.debug(
+                                        f"Exact name match found: '{node.name}' (uuid: {node.uuid}) "
+                                        f"matches '{other_name}' (uuid: {other_uuid})"
+                                    )
+                                
                                 logger.warning(
-                                    f"⚠️ Fuzzy Collision ({score:.2f}): Resolved Node '{node.name}' "
-                                    f"matches existing '{other_name}' ({other_uuid}). Scheduling Merge."
+                                    f"⚠️ Fuzzy Collision (score: {score:.4f}): Resolved Node '{node.name}' "
+                                    f"(uuid: {node.uuid}) matches existing '{other_name}' "
+                                    f"(uuid: {other_uuid}). Scheduling Merge."
                                 )
                                 
                                 # Construct the 'victim' node object
