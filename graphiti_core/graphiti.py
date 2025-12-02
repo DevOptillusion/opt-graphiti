@@ -851,6 +851,7 @@ class Graphiti:
                 # [Snippet End]
                 # ==============================================================================
                 if fuzzy_collision:
+                    logger.info(f'=============Start  of Fuzzy Collision Merge==================')
                     logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in duplicates]}')
                     logger.info(f'Executing immediate merge for {len(duplicates)} pairs...')
 
@@ -870,7 +871,8 @@ class Graphiti:
                     nodes = [n for n in nodes if n.uuid not in sacrificed_uuids]
                     
                     logger.info(f"Cleanup: Pruned {original_count - len(nodes)} merged/deleted nodes from the processing queue.")
-                
+                    logger.info(f'=============End  of Fuzzy Collision Merge==================')
+                    
                 # Extract and resolve edges in parallel with attribute extraction
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
                     episode,
@@ -950,6 +952,7 @@ class Graphiti:
                 span.set_status('error', str(e))
                 span.record_exception(e)
                 raise e
+            
 
     async def add_episode_bulk(
         self,
