@@ -1397,8 +1397,8 @@ class Graphiti:
                 continue
 
             query = """
-            MATCH (keep {uuid: $keep_uuid})
-            MATCH (discard {uuid: $discard_uuid})
+            MATCH (keep:Person {uuid: $keep_uuid})
+            MATCH (discard:Person {uuid: $discard_uuid})
             
             // APOC Merge
             // The first node in the list [keep, discard] is the "primary" that survives.
