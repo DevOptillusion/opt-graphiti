@@ -446,7 +446,7 @@ async def resolve_extracted_nodes(
     )
 
     _resolve_with_similarity(extracted_nodes, indexes, state)
-
+    similarity_duplicates = state.duplicate_pairs
     await _resolve_with_llm(
         llm_client,
         extracted_nodes,
