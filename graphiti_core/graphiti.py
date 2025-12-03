@@ -834,8 +834,8 @@ class Graphiti:
                                 
                                 logger.warning(
                                     f"⚠️ Fuzzy Collision (score: {score:.4f}): Resolved Node '{node.name}' "
-                                    f"(uuid: {node.uuid[-4:]}) matches existing '{other_name}' "
-                                    f"(uuid: {other_uuid[-4:]}). Processing Merge..."
+                                    f"({node.name} uuid: {node.uuid[-4:]}) matches existing '{other_name}', (uuid: {other_uuid[-4:]}) "
+                                    f"(Processing Merge..."
                                 )
 
                                 # Check if the 'source' node (node.uuid) already exists in the graph
@@ -845,7 +845,7 @@ class Graphiti:
 
                                 if node_exists_in_db:
                                      # CASE 1: Both nodes are in DB. We need a real graph merge.
-                                     logger.warning(f"[Debug]Duplicate DB Nodes detected: {node.uuid} and {other_uuid}. Scheduling DB Merge.")
+                                     logger.warning(f"⚠️ (Merge DB). [Debug]Duplicate DB Nodes detected: {node.uuid} and {other_uuid}. Scheduling DB Merge.")
                                      # Construct the 'victim' node object for the DB merge function
                                      other_node_obj = type(node)(
                                          uuid=other_uuid, 
@@ -861,7 +861,7 @@ class Graphiti:
                                      
                                 else:
                                      # CASE 2: New node collides with DB node. In-memory merge.
-                                     logger.info(f"[Debug]Merging New Node {node.uuid[-4:]} into Existing Node {other_uuid[-4:]} (In-Memory).")
+                                     logger.info(f"⚠️ (Merge In-Memory). [Debug]Merging New Node {node.uuid[-4:]} into Existing Node {other_uuid[-4:]} ")
                                      
                                      old_uuid = node.uuid
                                      existing_uuid = other_uuid
