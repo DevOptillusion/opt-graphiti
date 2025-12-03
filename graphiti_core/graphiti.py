@@ -835,8 +835,8 @@ class Graphiti:
                                 
                                 logger.warning(
                                     f"⚠️ Fuzzy Collision (score: {score:.4f}): Resolved Node '{node.name}' "
-                                    f"(uuid: {node.uuid}) matches existing '{other_name}' "
-                                    f"(uuid: {other_uuid}). Scheduling Merge."
+                                    f"(uuid: {node.uuid[-4:]}) matches existing '{other_name}' "
+                                    f"(uuid: {other_uuid[-4:]}). Scheduling Merge."
                                 )
                                 
                                 # Construct the 'victim' node object with required fields
@@ -860,8 +860,8 @@ class Graphiti:
                 # ==============================================================================
                 if fuzzy_collision:
                     logger.info(f'=============Start  of Fuzzy Collision Merge==================')
-                    logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in duplicates]}')
-                    logger.info(f'Executing immediate merge for {len(duplicates)} pairs...')
+                    logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in fuzzy_collision]}')
+                    logger.info(f'Executing immediate merge for {len(fuzzy_collision)} pairs...')
 
                     # This function physically updates the graph and deletes the 'source' nodes
                     await self.merge_duplicate_nodes(fuzzy_collision)
@@ -1398,8 +1398,8 @@ class Graphiti:
                 continue
 
             query = """
-            MATCH (keep:Person {uuid: $keep_uuid})
-            MATCH (discard:Person {uuid: $discard_uuid})
+            MATCH (keep {uuid: $keep_uuid})
+            MATCH (discard {uuid: $discard_uuid})
             
             // APOC Merge
             // The first node in the list [keep, discard] is the "primary" that survives.
@@ -1421,7 +1421,8 @@ class Graphiti:
             YIELD node
             RETURN node
             """
-
+            logger.info(f'Executing immediate merge for {node_to_remove.name} - {node_to_remove.uuid[-4:]} and {node_to_keep.name} - {node_to_keep.uuid[-4:]}')
+            
             await self.driver.execute_query(
                 query,
                 params={
