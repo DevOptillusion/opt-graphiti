@@ -436,7 +436,7 @@ async def resolve_extracted_nodes(
         extracted_nodes,
         existing_nodes_override,
     )
-    logger.info(f'[debug]Existing candidate nodes from dedupe search: {[(node.name, node.labels)for node in existing_nodes]}')
+    logger.info(f'Existing candidate nodes from the hybrid search: {[(node.name, node.labels)for node in existing_nodes]}')
     indexes: DedupCandidateIndexes = _build_candidate_indexes(existing_nodes)
 
     state = DedupResolutionState(
