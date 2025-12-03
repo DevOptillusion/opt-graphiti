@@ -417,6 +417,14 @@ async def _resolve_with_llm(
         state.resolved_nodes[original_index] = resolved_node
         state.uuid_map[extracted_node.uuid] = resolved_node.uuid
         if resolved_node.uuid != extracted_node.uuid:
+            logger.info(
+                'Found duplicate resolution by LLM: '
+                '-Extracted node "%s" (%s) vs resolved node "%s" (%s)',
+                extracted_node.name,
+                extracted_node.labels[0],
+                resolved_node.name,
+                resolved_node.labels[0],
+            )
             state.duplicate_pairs.append((extracted_node, resolved_node))
 
 
@@ -446,19 +454,6 @@ async def resolve_extracted_nodes(
     )
 
     _resolve_with_similarity(extracted_nodes, indexes, state)
-    similarity_duplicates = state.duplicate_pairs
-    if similarity_duplicates:
-        logger.info(
-            '[After Step 1: Similarity Resolution] Found %d duplicates: %s',
-            len(similarity_duplicates),
-            [
-                (f'"{extracted.name}" ({extracted.labels[0] if extracted.labels else "Unknown"})',
-                 f'"{resolved.name}" ({resolved.labels[0] if resolved.labels else "Unknown"})')
-                for extracted, resolved in similarity_duplicates
-            ],
-        )
-    else:
-        logger.info('[After Step 1: Similarity Resolution] No duplicates found via similarity resolution')
 
     await _resolve_with_llm(
         llm_client,
@@ -470,24 +465,6 @@ async def resolve_extracted_nodes(
         entity_types,
     )
     
-    # Log duplicates found in LLM step
-    llm_duplicates = [
-        (extracted, resolved)
-        for extracted, resolved in state.duplicate_pairs
-        if (extracted, resolved) not in similarity_duplicates
-    ]
-    if llm_duplicates:
-        logger.info(
-            '[After Step 2: LLM Resolution] Found %d additional duplicates: %s',
-            len(llm_duplicates),
-            [
-                (f'"{extracted.name}" ({extracted.labels[0] if extracted.labels else "Unknown"})',
-                 f'"{resolved.name}" ({resolved.labels[0] if resolved.labels else "Unknown"})')
-                for extracted, resolved in llm_duplicates
-            ],
-        )
-    else:
-        logger.info('[After Step 2: LLM Resolution] No additional duplicates found via LLM')
 
     for idx, node in enumerate(extracted_nodes):
         if state.resolved_nodes[idx] is None:

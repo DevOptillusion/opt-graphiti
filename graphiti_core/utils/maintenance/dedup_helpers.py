@@ -215,6 +215,13 @@ def _resolve_with_similarity(
             state.resolved_nodes[idx] = match
             state.uuid_map[node.uuid] = match.uuid
             if match.uuid != node.uuid:
+                print('[DEBUG] Found duplicate resolution by similarity: '
+                            '-Extracted node "%s" (%s) vs resolved node "%s" (%s)',
+                            node.name,
+                            node.labels[0],
+                            match.name,
+                            match.labels[0],
+                        )
                 state.duplicate_pairs.append((node, match))
             continue
         if len(existing_matches) > 1:
@@ -240,6 +247,13 @@ def _resolve_with_similarity(
             state.resolved_nodes[idx] = best_candidate
             state.uuid_map[node.uuid] = best_candidate.uuid
             if best_candidate.uuid != node.uuid:
+                print('[DEBUG] Found duplicate resolution by fuzzy similarity: '
+                            '-Extracted node "%s" (%s) vs resolved node "%s" (%s)',
+                            node.name,
+                            node.labels[0],
+                            best_candidate.name,
+                            best_candidate.labels[0],
+                        )
                 state.duplicate_pairs.append((node, best_candidate))
             continue
 
