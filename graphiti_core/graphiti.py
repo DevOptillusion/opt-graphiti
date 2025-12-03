@@ -1397,20 +1397,29 @@ class Graphiti:
                 continue
 
             query = """
-            MATCH (keep:Person {uuid: $keep_uuid})
-            MATCH (discard:Person {uuid: $discard_uuid})
+            MATCH (keep {uuid: $keep_uuid})
+            MATCH (discard {uuid: $discard_uuid})
             
-            // APOC Merge
+            // APOC Merge -- a refresh is needed to clear the neo4j browser cache in-order to show the discarded node.
             // The first node in the list [keep, discard] is the "primary" that survives.
             CALL apoc.refactor.mergeNodes([keep, discard], {
                 properties: {
                     // Rule: If both have this property, combine them into a list (great for history)
                     aliases: 'combine',
-                    description: 'discard',
+                    shared_history: 'combine',
+
                     
                     // Rule: For everything else, keep the value from the 'keep' node
                     // 'discard' here means "discard the incoming value", keeping the original
-                    name: 'discard', 
+                    name: 'discard',
+                    // Person Attributes
+                    description: 'discard',
+                    //RelationshipView Attributes
+                    holder_name: 'discard',
+                    target_name: 'discard',
+                    familarity: 'discard',
+                    current_attitude: 'discard',
+                    current_attitude_evidence_summary: 'discard',
                     
                     // Catch-all for other properties
                     `.*`: 'combine'
