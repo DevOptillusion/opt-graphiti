@@ -185,19 +185,38 @@ Indicate the classified entity type by providing its entity_type_id.
 {context['custom_prompt']}
 
 Guidelines:
-1. **Person Extraction**: 
-   - if you see '我'as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person. 
-   - Aria is also the narrator, so 旁白 refers to Aria as well, but do not extract '旁白' as a separate person from Aria.
-   - Do not extract unimportant person with name like '路人甲','工作人员'. 
-   - Please pay attention to unkown persons that whether you can find the name in the text.
-2. **RelationshipView Extraction**: 
-    - Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
-    - For holder and target, both have to be a person, instead of a location or a thing.
-    - Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they Aria meets them in the act: 'Paris','Elliot'. e.g. 'Aria:Paris'.
-    - For other people that Aria meets, please decide whether you think a RelationshipView should be extracted for them. If you think so, please extract the RelationshipView of Aria to them.
+1. **Person Extraction**:
+   - **Canonicalization (Narrator/Self)**:
+     - The First Person ('我') and the Narrator ('旁白') MUST always be extracted as the named node **'Aria'**.
+     - NEVER create nodes named '我', '旁白'.
+   
+   - **Noise Filtering (Generic Roles)**:
+     - DO NOT extract generic, unnamed background characters (e.g., '路人甲', '工作人员').
+     - **Exception**: Only extract them if they are CRITICAL to the act AND appear in multiple interactions.
+
+   - **Name Resolution (Unknown Persons)**:
+     - **Strict Rule**: Prefer to use the first name.
+     - **Action**: 
+       - If the name is revealed (e.g., "The stranger said, 'Call me **Dante**'"), extract as 'Dante'.
+2.**RelationshipView Extraction**:
+    - **Format**: Must strictly use 'holder_name:target_name'.
+    - **Name Resolution**: 
+        - Use the **First Name** of the person. 
+        - **EXCEPTION**: If there are multiple people with the same first name (e.g., two 'John's), you MUST include the Last Name or a distinct descriptor to avoid collision (e.g., 'JohnS', 'JohnD').
+    - **Type Constraint**: Both Holder and Target must be strictly of type **Person**. Do not extract for places, organizations, or objects.
+    - **Directionality (CRITICAL)**: 
+        - The **Holder** is the person *feeling, thinking, or perceiving*. 
+        - The **Target** is the person *being observed*.
+        - Example: If text says "Paris finds Elliot annoying", extract 'Paris:Elliot' (Paris holds the view).
+    - **Extraction Threshold**:
+        - **Always Extract**: 'Aria:Paris', 'Aria:Elliot' (if they interact in the scene).
+        - **Others**: Only extract a RelationshipView if there is a **meaningful interaction** involving:
+            1. An explicit opinion or sentiment (e.g., liking, distrusting).
+            2. A change in relationship status (e.g., meeting for the first time, fighting).
+            3. Do NOT extract for trivial interactions (e.g., just saying hello).
 
 3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
-4. **MemoryNote Extraction**: Must extract at least one MemoryNote from each act.
+4. **MemoryNote Extraction**: Must extract at least one, but no more than 3 MemoryNote from each act.
 5. Extract significant entities, concepts, or actors mentioned in the act.
 6. Avoid creating nodes for locations.
 7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).

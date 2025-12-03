@@ -748,6 +748,8 @@ class Graphiti:
                     entity_types,
                 )
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels, n.uuid[-4:]) for n in nodes]}')
+                # source: the node that is being processed
+                # target: the node that is found in the graph
                 if duplicates:
                     logger.info(f'Duplicate nodes from dedupe search (source, target): {[(source.name, source.labels, source.uuid[-4:], target.name, target.labels, target.uuid[-4:])for source,target in duplicates]}')
                 
