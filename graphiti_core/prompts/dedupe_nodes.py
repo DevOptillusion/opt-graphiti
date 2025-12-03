@@ -142,10 +142,6 @@ def nodes(context: dict[str, Any]) -> list[Message]:
     {to_prompt_json(context['extracted_nodes'])} 
     </NEW ENTITIES>
     
-    <ENTITY TYPE DESCRIPTION>
-    {to_prompt_json(context['entity_type_description'])}
-    </ENTITY TYPE DESCRIPTION>
-
     <EXISTING ENTITIES>
     {to_prompt_json(context['existing_nodes'])}
     </EXISTING ENTITIES>
