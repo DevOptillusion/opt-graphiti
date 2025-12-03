@@ -835,19 +835,37 @@ class Graphiti:
                                 logger.warning(
                                     f"⚠️ Fuzzy Collision (score: {score:.4f}): Resolved Node '{node.name}' "
                                     f"(uuid: {node.uuid[-4:]}) matches existing '{other_name}' "
-                                    f"(uuid: {other_uuid[-4:]}). Scheduling Merge."
+                                    f"(uuid: {other_uuid[-4:]}). Merging In-Memory."
                                 )
+
+                                # ==============================================================================
+                                # [IN-MEMORY MERGE START]
+                                # ==============================================================================
+                                # Since 'node' is new and not yet in the DB, we cannot use APOC merge.
+                                # Instead, we make 'node' adopt the identity of the existing 'other_uuid'.
+                                # This ensures that when it is saved, it updates the existing node
+                                # and attaches edges to it.
+
+                                old_uuid = node.uuid
+                                existing_uuid = other_uuid
+
+                                # 1. Update the mapping: Any reference to the NEW uuid should point to EXISTING uuid
+                                keys_to_update = [k for k, v in uuid_map.items() if v == old_uuid]
+                                for k in keys_to_update:
+                                    uuid_map[k] = existing_uuid
+
+                                # Also map the old uuid itself
+                                uuid_map[old_uuid] = existing_uuid
+
+                                # 2. Update the node object itself
+                                node.uuid = existing_uuid
+                                # Note: We keep the new attributes (name, description, etc.) from 'node'.
+                                # When saved, these will overwrite/update the existing node's properties.
                                 
-                                # Construct the 'victim' node object with required fields
-                                other_node_obj = type(node)(
-                                    uuid=other_uuid,
-                                    name=other_name,
-                                    group_id=other_group_id,
-                                    labels=[],  # Will be populated from database if needed
-                                )
-                                
-                                # Add to merge queue
-                                fuzzy_collision.append((other_node_obj, node))
+                                logger.info(f"Merged new node {old_uuid[-4:]} into existing {existing_uuid[-4:]}")
+                                # ==============================================================================
+                                # [IN-MEMORY MERGE END]
+                                # ==============================================================================
                                 
                         except Exception as e:
                             # Fallback mechanism if APOC is missing or query fails
@@ -857,28 +875,7 @@ class Graphiti:
                 # ==============================================================================
                 # [Snippet End]
                 # ==============================================================================
-                if fuzzy_collision:
-                    logger.info(f'=============Start  of Fuzzy Collision Merge==================')
-                    logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in fuzzy_collision]}')
-
-                    # This function physically updates the graph and deletes the 'source' nodes
-                    await self.merge_duplicate_nodes(fuzzy_collision)
-
-                    # Cleanup Processing Queue
-                    # The fuzzy collision logic merged some nodes and deleted them.
-                    # We must remove these deleted nodes from the 'hydrated_nodes' list to prevent 
-                    # errors in subsequent steps (Saving).
-                    
-                    # Identify UUIDs of nodes that were just deleted (the first item in the tuple)
-                    sacrificed_uuids = {src.uuid for src, target in fuzzy_collision if src.uuid}
-                    
-                    original_count = len(hydrated_nodes)
-                    # Filter the list: Keep only nodes that are NOT in the sacrificed set
-                    hydrated_nodes = [n for n in hydrated_nodes if n.uuid not in sacrificed_uuids]
-                    
-                    logger.info(f"Cleanup: Removed {len(sacrificed_uuids)} nodes from the processing queue.")
-                    logger.info(f'=============End  of Fuzzy Collision Merge==================')
-
+                
                 # Extract and resolve edges
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
                     episode,
@@ -1389,7 +1386,7 @@ class Graphiti:
             return
 
         # We iterate through the pairs
-        for node_to_remove, node_to_keep in duplicates:
+        for node_to_remove, node_to_keep  in duplicates:
             
             # Check if both have UUIDs (safety check)
             if not node_to_remove.uuid or not node_to_keep.uuid:
