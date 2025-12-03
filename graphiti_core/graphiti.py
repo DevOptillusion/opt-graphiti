@@ -1407,14 +1407,14 @@ class Graphiti:
                 properties: {
                     // Rule: If both have this property, combine them into a list (great for history)
                     aliases: 'combine',
+                    description: 'discard',
                     
                     // Rule: For everything else, keep the value from the 'keep' node
                     // 'discard' here means "discard the incoming value", keeping the original
                     name: 'discard', 
-                    description: 'discard',
                     
                     // Catch-all for other properties
-                    `.*`: 'discard'
+                    `.*`: 'combine'
                 },
                 mergeRels: true
             })
