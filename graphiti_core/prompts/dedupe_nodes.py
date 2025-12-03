@@ -165,7 +165,7 @@ Check the `entity_types` of the current entity being processed.
     * **ACTION:** Only merge if `Existing Node Name` == `Current Node Name` EXACTLY (matches both holder and target). If not exact, return `duplicate_idx: -1`.
 
 * **IF entity_types == "Person"**:
-    * **RULE:** High Ambiguity Caution.
+    * **RULE:** High Ambiguity Caution. If the name matches，it is a duplicate.
     * **ACTION:** Use context to confirm identity. If names are similar but distinct (e.g. "John S." vs "John D."), return `duplicate_idx: -1`.
 
 * **ALL OTHER entity_types**:
