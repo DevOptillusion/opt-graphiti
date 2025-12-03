@@ -1437,3 +1437,17 @@ class Graphiti:
                     'discard_uuid': node_to_remove.uuid,
                 },
             )
+
+            # Verification: Check if the discarded node still exists
+            check_query = "MATCH (n {uuid: $discard_uuid}) RETURN n"
+            result, _, _ = await self.driver.execute_query(
+                check_query,
+                params={'discard_uuid': node_to_remove.uuid},
+            )
+
+            if not result:
+                logger.info(f"✅ Merge verified: Node {node_to_remove.uuid[-4:]} no longer exists.")
+            else:
+                logger.warning(
+                    f"⚠️ Merge verification failed: Node {node_to_remove.uuid[-4:]} still exists after merge operation."
+                )
