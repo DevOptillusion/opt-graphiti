@@ -205,7 +205,7 @@ Guidelines:
         - **EXCEPTION**: If there are multiple people with the same first name (e.g., two 'John's), you MUST include the Last Name or a distinct descriptor to avoid collision (e.g., 'JohnS', 'JohnD').
     - **Type Constraint**: Both Holder and Target must be strictly of type **Person**. Do not extract for places, organizations, or objects.
     - **Directionality (CRITICAL)**: 
-        - The **Holder** is the person *feeling, thinking, or perceiving*. 
+        - The **Holder** is the person *feeling, thinking, or perceiving* of another person.
         - The **Target** is the person *being observed*.
         - Example: If text says "Paris finds Elliot annoying", extract 'Paris:Elliot' (Paris holds the view).
     - **Extraction Threshold**:
@@ -213,8 +213,7 @@ Guidelines:
         - **Others**: Only extract a RelationshipView if there is a **meaningful interaction** involving:
             1. An explicit opinion or sentiment (e.g., liking, distrusting).
             2. A change in relationship status (e.g., meeting for the first time, fighting).
-            3. Do NOT extract for trivial interactions (e.g., just saying hello).
-            4. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
+            3. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
 
 3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
 4. **MemoryNote Extraction**: Must extract at least one, but no more than 3 MemoryNote from each act.
