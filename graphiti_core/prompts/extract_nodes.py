@@ -214,6 +214,7 @@ Guidelines:
             1. An explicit opinion or sentiment (e.g., liking, distrusting).
             2. A change in relationship status (e.g., meeting for the first time, fighting).
             3. Do NOT extract for trivial interactions (e.g., just saying hello).
+            4. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
 
 3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
 4. **MemoryNote Extraction**: Must extract at least one, but no more than 3 MemoryNote from each act.
