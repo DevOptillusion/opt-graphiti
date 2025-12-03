@@ -749,13 +749,13 @@ class Graphiti:
                 )
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels, n.uuid[-4:]) for n in nodes]}')
                 if duplicates:
-                    logger.info(f'Duplicate nodes from dedupe search: {[(source.name, source.labels, target.name, target.labels)for source,target in duplicates]}')
+                    logger.info(f'Duplicate nodes from dedupe search (source, target): {[(source.name, source.labels, source.uuid[-4:], target.name, target.labels, target.uuid[-4:])for source,target in duplicates]}')
                 
                 # Extract node attributes
                 hydrated_nodes = await extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
                 )
-                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels) for n in hydrated_nodes]}')
+                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels,n.uuid[-4:]) for n in hydrated_nodes]}')
                 
                 # ==============================================================================
                 # Fuzzy  Name Collision Detection Hook
@@ -845,7 +845,7 @@ class Graphiti:
 
                                 if node_exists_in_db:
                                      # CASE 1: Both nodes are in DB. We need a real graph merge.
-                                     logger.warning(f"Duplicate DB Nodes detected: {node.uuid} and {other_uuid}. Scheduling DB Merge.")
+                                     logger.warning(f"[Debug]Duplicate DB Nodes detected: {node.uuid} and {other_uuid}. Scheduling DB Merge.")
                                      # Construct the 'victim' node object for the DB merge function
                                      other_node_obj = type(node)(
                                          uuid=other_uuid, 
@@ -861,7 +861,7 @@ class Graphiti:
                                      
                                 else:
                                      # CASE 2: New node collides with DB node. In-memory merge.
-                                     logger.info(f"Merging New Node {node.uuid[-4:]} into Existing Node {other_uuid[-4:]} (In-Memory).")
+                                     logger.info(f"[Debug]Merging New Node {node.uuid[-4:]} into Existing Node {other_uuid[-4:]} (In-Memory).")
                                      
                                      old_uuid = node.uuid
                                      existing_uuid = other_uuid
