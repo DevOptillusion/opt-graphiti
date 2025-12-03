@@ -234,6 +234,8 @@ async def _collect_candidate_nodes(
     )
 
     candidate_nodes: list[EntityNode] = [node for result in search_results for node in result.nodes]
+    # remove MemeoryNote from candidate_nodes
+    candidate_nodes = [node for node in candidate_nodes if node.labels[0] != 'MemoryNote']
 
     if existing_nodes_override is not None:
         candidate_nodes.extend(existing_nodes_override)
