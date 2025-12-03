@@ -401,14 +401,22 @@ class Graphiti:
 
         edges = resolve_edge_pointers(extracted_edges, uuid_map)
 
-        resolved_edges, invalidated_edges = await resolve_extracted_edges(
-            self.clients,
-            edges,
-            episode,
-            nodes,
-            edge_types or {},
-            edge_type_map,
-        )
+        # [Debug] Bypass edge resolution/deduplication
+        # Ensure embeddings are generated so search still works
+        if edges:
+            await create_entity_edge_embeddings(self.embedder, edges)
+        
+        resolved_edges = edges
+        invalidated_edges = []
+
+        # resolved_edges, invalidated_edges = await resolve_extracted_edges(
+        #     self.clients,
+        #     edges,
+        #     episode,
+        #     nodes,
+        #     edge_types or {},
+        #     edge_type_map,
+        # )
 
         return resolved_edges, invalidated_edges
 
