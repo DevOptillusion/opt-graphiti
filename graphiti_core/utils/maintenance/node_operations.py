@@ -447,6 +447,19 @@ async def resolve_extracted_nodes(
 
     _resolve_with_similarity(extracted_nodes, indexes, state)
     similarity_duplicates = state.duplicate_pairs
+    if similarity_duplicates:
+        logger.info(
+            '[After Step 1: Similarity Resolution] Found %d duplicates: %s',
+            len(similarity_duplicates),
+            [
+                (f'"{extracted.name}" ({extracted.labels[0] if extracted.labels else "Unknown"})',
+                 f'"{resolved.name}" ({resolved.labels[0] if resolved.labels else "Unknown"})')
+                for extracted, resolved in similarity_duplicates
+            ],
+        )
+    else:
+        logger.info('[After Step 1: Similarity Resolution] No duplicates found via similarity resolution')
+
     await _resolve_with_llm(
         llm_client,
         extracted_nodes,
