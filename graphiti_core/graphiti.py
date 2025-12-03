@@ -860,7 +860,6 @@ class Graphiti:
                 if fuzzy_collision:
                     logger.info(f'=============Start  of Fuzzy Collision Merge==================')
                     logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in fuzzy_collision]}')
-                    logger.info(f'Executing immediate merge for {len(fuzzy_collision)} pairs...')
 
                     # This function physically updates the graph and deletes the 'source' nodes
                     await self.merge_duplicate_nodes(fuzzy_collision)
@@ -877,7 +876,7 @@ class Graphiti:
                     # Filter the list: Keep only nodes that are NOT in the sacrificed set
                     hydrated_nodes = [n for n in hydrated_nodes if n.uuid not in sacrificed_uuids]
                     
-                    logger.info(f"Cleanup: Pruned {original_count - len(hydrated_nodes)} merged/deleted nodes from the processing queue.")
+                    logger.info(f"Cleanup: Removed {len(sacrificed_uuids)} nodes from the processing queue.")
                     logger.info(f'=============End  of Fuzzy Collision Merge==================')
 
                 # Extract and resolve edges
@@ -1422,7 +1421,7 @@ class Graphiti:
                     current_attitude_evidence_summary: 'discard',
                     
                     // Catch-all for other properties
-                    `.*`: 'combine'
+                    `.*`: 'discard'
                 },
                 mergeRels: true
             })
