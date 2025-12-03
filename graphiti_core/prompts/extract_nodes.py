@@ -192,6 +192,7 @@ Guidelines:
    - Please pay attention to unkown persons that whether you can find the name in the text.
 2. **RelationshipView Extraction**: 
     - Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
+    - For holder and target, both have to be a person, instead of a location or a thing.
     - Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they Aria meets them in the act: 'Paris','Elliot'. e.g. 'Aria:Paris'.
     - For other people that Aria meets, please decide whether you think a RelationshipView should be extracted for them. If you think so, please extract the RelationshipView of Aria to them.
 
