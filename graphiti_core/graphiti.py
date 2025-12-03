@@ -761,9 +761,8 @@ class Graphiti:
                 # Fuzzy  Name Collision Detection Hook
                 # ==============================================================================
                 # Threshold: 0.0 to 1.0 (1.0 is exact match). 
-                # 0.85 is usually a good balance for names (catches "Paris" vs "Parris").
                 # Note: This runs AFTER attribute extraction so nodes have complete data for merge decisions
-                DISTANCE_THRESHOLD = 0.15
+                DISTANCE_THRESHOLD = 0.2
                 fuzzy_collision = []
 
                 for node in hydrated_nodes:
