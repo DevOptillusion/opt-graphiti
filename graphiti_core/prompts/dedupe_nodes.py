@@ -132,7 +132,7 @@ def nodes(context: dict[str, Any]) -> list[Message]:
                 content=f"""
 <DATA_CONTEXT>
     <PREVIOUS MESSAGES>
-    {to_prompt_json([ep for ep in context['previous_episodes']])}
+    {to_prompt_json([ep for ep in context['previous_episodes'][-1:]])}
     </PREVIOUS MESSAGES>
     <CURRENT MESSAGE>
     {context['episode_content']}

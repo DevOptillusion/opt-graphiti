@@ -194,11 +194,11 @@ Guidelines:
      - DO NOT extract generic, unnamed background characters (e.g., '路人甲', '工作人员').
      - **Exception**: Only extract them if they are CRITICAL to the act AND appear in multiple interactions.
 
-   - **Name Resolution (Unknown Persons)**:
+   - **Name Resolution **:
      - **Strict Rule**: Prefer to use the first name.
      - **Action**: 
        - If the name is revealed (e.g., "The stranger said, 'Call me **Dante**'"), extract as 'Dante'.
-2.**RelationshipView Extraction**:
+2. **RelationshipView Extraction**:
     - **Format**: Must strictly use 'holder_name:target_name'.
     - **Name Resolution**: 
         - Use the **First Name** of the person. 
