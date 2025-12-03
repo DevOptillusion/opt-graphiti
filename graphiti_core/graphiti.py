@@ -1430,13 +1430,36 @@ class Graphiti:
             """
             logger.info(f'Executing immediate merge for {node_to_remove.name} - {node_to_remove.uuid[-4:]} and {node_to_keep.name} - {node_to_keep.uuid[-4:]}')
             
-            await self.driver.execute_query(
+            result, _, _ = await self.driver.execute_query(
                 query,
                 params={
                     'keep_uuid': node_to_keep.uuid,
                     'discard_uuid': node_to_remove.uuid,
                 },
             )
+
+            if not result:
+                logger.warning("⚠️ Merge query returned 0 records. This implies the MATCH failed (one of the nodes was not found). Running diagnostics...")
+                
+                # Diagnostics: Check which node is missing
+                diag_query = """
+                OPTIONAL MATCH (keep {uuid: $keep_uuid})
+                OPTIONAL MATCH (discard {uuid: $discard_uuid})
+                RETURN keep IS NOT NULL as keep_exists, discard IS NOT NULL as discard_exists
+                """
+                diag_result, _, _ = await self.driver.execute_query(
+                    diag_query,
+                    params={
+                        'keep_uuid': node_to_keep.uuid,
+                        'discard_uuid': node_to_remove.uuid,
+                    }
+                )
+                if diag_result:
+                    record = diag_result[0]
+                    logger.warning(f"Diagnostics: Keep Node Exists? {record['keep_exists']}, Discard Node Exists? {record['discard_exists']}")
+                    logger.warning(f"UUIDs used - Keep: {node_to_keep.uuid}, Discard: {node_to_remove.uuid}")
+            else:
+                logger.info("Merge operation returned a result (success).")
 
             # Verification: Check if the discarded node still exists
             check_query = "MATCH (n {uuid: $discard_uuid}) RETURN n"
