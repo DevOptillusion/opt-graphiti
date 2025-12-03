@@ -85,13 +85,16 @@ def node(context: dict[str, Any]) -> list[Message]:
         
         Entities should only be considered duplicates if they refer to the *same real-world object or concept*.
         Semantic Equivalence: if a descriptive label in existing_entities clearly refers to a named entity in context, treat them as duplicates.
-        - Be careful on Person, if you are not sure whether they are the same person, do not mark them as duplicates.
+
+        Guidelines for each entity_type:
+        - Person: Be careful on Person, if you are not sure whether they are the same person, do not mark them as duplicates.
+        - RelationshipView: it has format "holder_name:target_name", if you think two relationshipView Nodes have the same holder person and also the same target person, they are duplicates.
+        - MemoryNote: Please never mark MemoryNote as duplicates to anothe MemoryNote Node.
 
         Do NOT mark entities as duplicates if:
         - They are related but distinct.
         - They have similar names or purposes but refer to separate instances or concepts.
         - They have different entity_types.
-        - They both have the entity_yypes as MemoryNotes
 
          TASK:
          1. Compare `new_entity` against each item in `existing_entities`.
