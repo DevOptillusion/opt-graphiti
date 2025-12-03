@@ -456,6 +456,25 @@ async def resolve_extracted_nodes(
         previous_episodes,
         entity_types,
     )
+    
+    # Log duplicates found in LLM step
+    llm_duplicates = [
+        (extracted, resolved)
+        for extracted, resolved in state.duplicate_pairs
+        if (extracted, resolved) not in similarity_duplicates
+    ]
+    if llm_duplicates:
+        logger.info(
+            '[After Step 2: LLM Resolution] Found %d additional duplicates: %s',
+            len(llm_duplicates),
+            [
+                (f'"{extracted.name}" ({extracted.labels[0] if extracted.labels else "Unknown"})',
+                 f'"{resolved.name}" ({resolved.labels[0] if resolved.labels else "Unknown"})')
+                for extracted, resolved in llm_duplicates
+            ],
+        )
+    else:
+        logger.info('[After Step 2: LLM Resolution] No additional duplicates found via LLM')
 
     for idx, node in enumerate(extracted_nodes):
         if state.resolved_nodes[idx] is None:
@@ -470,6 +489,20 @@ async def resolve_extracted_nodes(
     new_node_duplicates: list[
         tuple[EntityNode, EntityNode]
     ] = await filter_existing_duplicate_of_edges(driver, state.duplicate_pairs)
+    
+    # Final summary of all duplicates
+    if state.duplicate_pairs:
+        logger.info(
+            '[Final Summary] Total duplicates identified: %d pairs: %s',
+            len(state.duplicate_pairs),
+            [
+                (f'"{extracted.name}" ({extracted.labels[0] if extracted.labels else "Unknown"})',
+                 f'"{resolved.name}" ({resolved.labels[0] if resolved.labels else "Unknown"})')
+                for extracted, resolved in state.duplicate_pairs
+            ],
+        )
+    else:
+        logger.info('[Final Summary] No duplicates identified - all nodes are new')
 
     return (
         [node for node in state.resolved_nodes if node is not None],
