@@ -747,7 +747,7 @@ class Graphiti:
                     previous_episodes,
                     entity_types,
                 )
-                logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels,n.uuid[:-4]) for n in nodes]}')
+                logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels, n.uuid[-4:]) for n in nodes]}')
                 if duplicates:
                     logger.info(f'Duplicate nodes from dedupe search: {[(source.name, source.labels, target.name, target.labels)for source,target in duplicates]}')
                 
