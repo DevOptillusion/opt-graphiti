@@ -201,6 +201,7 @@ def _resolve_with_similarity(
     state: DedupResolutionState,
 ) -> None:
     """Attempt deterministic resolution using exact name hits and fuzzy MinHash comparisons."""
+    print (f'[DEBUG] Resolving {len(extracted_nodes)} extracted nodes with similarity...')
     for idx, node in enumerate(extracted_nodes):
         normalized_exact = _normalize_string_exact(node.name)
         normalized_fuzzy = _normalize_name_for_fuzzy(node.name)
@@ -210,6 +211,7 @@ def _resolve_with_similarity(
             continue
 
         existing_matches = indexes.normalized_existing.get(normalized_exact, [])
+        print (f'[DEBUG] Existing matches for {node.name}: {existing_matches}')
         if len(existing_matches) == 1:
             match = existing_matches[0]
             state.resolved_nodes[idx] = match
