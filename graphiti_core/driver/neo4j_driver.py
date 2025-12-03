@@ -55,6 +55,7 @@ class Neo4jDriver(GraphDriver):
 
         try:
             result = await self.client.execute_query(cypher_query_, parameters_=params, **kwargs)
+            print (f'[DEBUG] neo4j execute_query Result: {result}')
         except Exception as e:
             logger.error(f'Error executing Neo4j query: {e}\n{cypher_query_}\n{params}')
             raise
