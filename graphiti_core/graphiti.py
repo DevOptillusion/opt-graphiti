@@ -798,7 +798,7 @@ class Graphiti:
                                 'labels': node.labels if node.labels else [],
                             })
                             node_index_map[node.uuid] = idx
-
+                        print(f'[DEBUG] Batch nodes data: {batch_nodes_data}')
                         # Batch query to find all fuzzy matches in a single database call
                         batch_similarity_query = """
                         UNWIND $nodes AS node_data
