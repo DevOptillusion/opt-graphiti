@@ -162,7 +162,7 @@ Check the `entity_types` of the current entity being processed.
 
 * **IF entity_types == "RelationshipView"**:
     * **RULE:** Strict Structural Match. The name format is "HolderName:TargetName". If you think the holder and target are the same person, they are duplicates.
-    * **ACTION:** Only merge if `Existing Node Name` == `Current Node Name` EXACTLY (matches both holder and target). If not exact, return `duplicate_idx: -1`.
+    * **ACTION:** Only merge if you think the holder and target are the same person, they are duplicates. Note, sometimes the same target can have different names. For examples, a person was known as '陌生男人'，but based on the history, it can be the same target of a later one.
 
 * **IF entity_types == "Person"**:
     * **RULE:** High Ambiguity Caution. If the name matches，it is a duplicate.
