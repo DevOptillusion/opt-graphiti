@@ -574,7 +574,11 @@ async def _extract_entity_attributes(
         node_data={
             'name': node.name,
             'entity_types': node.labels,
-            'attributes': node.attributes,
+            'attributes': {
+                k: v
+                for k, v in node.attributes.items()
+                if k not in ('name_embedding', 'description_embedding')
+            },
         },
         episode=episode,
         previous_episodes=previous_episodes,
