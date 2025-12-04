@@ -765,16 +765,16 @@ class Graphiti:
                 hydrated_nodes = await extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
                 )
-                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes:')
+                print (f'Step 4: {len(hydrated_nodes)} Hydrated nodes:')
                 for n in hydrated_nodes:
-                    logger.info(f'  - {n.name} ({n.labels}, uuid: {n.uuid[-4:]})')
+                    print (f'  - {n.name} ({n.labels}, uuid: {n.uuid[-4:]})')
                 
                 # ==============================================================================
                 # Fuzzy  Name Collision Detection Hook (BATCHED OPTIMIZATION)
                 # ==============================================================================
                 # Threshold: 0.0 to 1.0 (1.0 is exact match). 
                 # Note: This runs AFTER attribute extraction so nodes have complete data for merge decisions
-                DISTANCE_THRESHOLD = 0.25
+                DISTANCE_THRESHOLD = 0.15
                 fuzzy_collision = []
 
                 # Filter out MemoryNote nodes and prepare batch data
