@@ -776,6 +776,10 @@ class Graphiti:
                 fuzzy_collision = []
 
                 for node in hydrated_nodes:
+                    # Skip MemoryNote nodes from fuzzy collision detection
+                    if 'MemoryNote' in node.labels:
+                        continue
+                    
                     if node.uuid and node.name:
                         # We use APOC to check for similarity.
                         # If APOC is not available, fallback to: toLower(n.name) = toLower($name)
@@ -798,6 +802,7 @@ class Graphiti:
                         MATCH (n)
                         WHERE n.uuid <> $uuid
                         AND n.group_id = $group_id
+                        AND NOT 'MemoryNote' IN labels(n)
                         {label_filter}
                         AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) < $threshold
                         RETURN n.uuid, n.name, n.group_id, apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) as score
@@ -834,6 +839,16 @@ class Graphiti:
                                 other_name = records[0]['n.name']
                                 other_group_id = records[0].get('n.group_id', node.group_id)
                                 score = records[0]['score']
+                                
+                                # Safety check: Skip if the matched node is a MemoryNote
+                                # (This should be rare since we filter in the query, but check for safety)
+                                check_memory_note_query = "MATCH (n {uuid: $uuid}) RETURN labels(n) as labels"
+                                check_memory_note_res, _, _ = await self.driver.execute_query(
+                                    check_memory_note_query, uuid=other_uuid
+                                )
+                                if check_memory_note_res and 'MemoryNote' in check_memory_note_res[0].get('labels', []):
+                                    logger.debug(f"Skipping fuzzy collision: matched node {other_uuid[-4:]} is a MemoryNote")
+                                    continue
                                 
                                 # Debug: Log if score is exactly 0.00 (exact match)
                                 if score == 0.0:
