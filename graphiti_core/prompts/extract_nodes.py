@@ -231,13 +231,10 @@ Guidelines:
      - *Invalid Example*: Category: 'Person', Value: 'Alice'. (STOP -> Move to RelationshipView).
 4. **MemoryNote Extraction**:
    - **Quantity Control (Strict)**: 
-     - You MUST extract **at least 1** MemoryNote.
-     - You must NOT extract more than **2** MemoryNotes.
+     - Only extract at most 1 MemoryNote from eact act and do not force extract if no key memory event happens in the act.
    
    - **Content Hierarchy**:
      - **Note #1 (The Summary)**: Extract the primary topic, event, or action of this conversation. If the conversation is trivial, summarize the casual topic (e.g., "我和Paris第一次相遇了").
-     - **Note #2 (The Insight - Optional)**: Only extract a second note if there is a distinct, separate critical piece of information (e.g., a specific promise made, a secret revealed, or a plan changed,etc.).
-
    - **Writing Style**:
      - **Concise**: Keep each note under 20 words.
      - **Objective**: Use third-person past tense (e.g., "Aria expressed concern about the mission," NOT "I am worried").
