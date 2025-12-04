@@ -847,6 +847,7 @@ class Graphiti:
                                 }
                                 for record in batch_result.records
                             ]
+                            print(f'[DEBUG] Batch records: {batch_records}')
                         elif isinstance(batch_result, tuple) and len(batch_result) > 0:
                             # Some drivers return (records, _, _)
                             batch_records = batch_result[0] if batch_result[0] else []
