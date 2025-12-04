@@ -17,6 +17,7 @@ limitations under the License.
 import logging
 from datetime import datetime
 from time import time
+from typing import cast
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -128,6 +129,15 @@ class AddTripletResults(BaseModel):
 
 
 class Graphiti:
+    # Mapping of entity type labels to attribute names used for fuzzy similarity comparison
+    # If an entity type is not in this map, it defaults to using 'name'
+    ENTITY_COMPARISON_ATTRIBUTES: dict[str, str] = {
+        'Person': 'person_name',
+        'RelationshipView': 'name',
+        # Add more entity types and their comparison attributes as needed
+        # Example: 'RelationshipView': 'name',
+    }
+
     def __init__(
         self,
         uri: str | None = None,
@@ -287,6 +297,38 @@ class Graphiti:
             return 'voyage'
         else:
             return 'unknown'
+
+    def _build_comparison_case(self, prefix: str, is_source: bool) -> str:
+        """Build a CASE statement to select the appropriate comparison attribute based on entity type.
+        
+        Parameters
+        ----------
+        prefix : str
+            The prefix for the node variable in the Cypher query (e.g., 'node_data' or 'n')
+        is_source : bool
+            True if building for source node (node_data), False for target node (n)
+        
+        Returns
+        -------
+        str
+            A Cypher CASE statement that selects the appropriate comparison attribute
+        """
+        cases = []
+        for entity_type, attr_name in self.ENTITY_COMPARISON_ATTRIBUTES.items():
+            if is_source:
+                # For source (node_data), check labels and attribute existence
+                cases.append(
+                    f"WHEN '{entity_type}' IN {prefix}.labels AND {prefix}.{attr_name} IS NOT NULL "
+                    f"THEN toLower({prefix}.{attr_name})"
+                )
+            else:
+                # For target (n), check labels and property existence
+                cases.append(
+                    f"WHEN '{entity_type}' IN labels({prefix}) AND {prefix}.{attr_name} IS NOT NULL "
+                    f"THEN toLower({prefix}.{attr_name})"
+                )
+        cases.append(f"ELSE toLower({prefix}.name)")
+        return "CASE\n" + "\n".join(f"                             {case}" for case in cases) + "\n                             END"
 
     async def close(self):
         """
@@ -793,13 +835,24 @@ class Graphiti:
                         node_index_map = {}  # Map node UUID to index in nodes_to_check
                         
                         for idx, node in enumerate(nodes_to_check):
-                            batch_nodes_data.append({
+                            node_data_entry = {
                                 'uuid': node.uuid,
                                 'name': node.name,
                                 'group_id': node.group_id,
                                 'labels': node.labels if node.labels else [],
-                            })
+                            }
+                            # Include comparison attributes for each entity type based on mapping
+                            if node.attributes:
+                                for entity_type, attr_name in self.ENTITY_COMPARISON_ATTRIBUTES.items():
+                                    if entity_type in node.labels and attr_name in node.attributes:
+                                        node_data_entry[attr_name] = node.attributes.get(attr_name)
+                            batch_nodes_data.append(node_data_entry)
                             node_index_map[node.uuid] = idx
+                        
+                        # Build dynamic CASE statements for source and target comparison attributes
+                        source_case = self._build_comparison_case("node_data", is_source=True)
+                        target_case = self._build_comparison_case("n", is_source=False)
+                        
                         # Batch query to find all fuzzy matches in a single database call
                         batch_similarity_query = """
                         UNWIND $nodes AS node_data
@@ -811,23 +864,26 @@ class Graphiti:
                             size(node_data.labels) = 0 
                             OR any(label IN labels(n) WHERE label IN node_data.labels)
                         )
-                        AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower(node_data.name)) < $threshold
-                        WITH node_data, n, apoc.text.jaroWinklerDistance(toLower(n.name), toLower(node_data.name)) as score
+                        WITH node_data, n,
+                             {source_case} AS source_name_to_compare,
+                             {target_case} AS target_name_to_compare
+                        WHERE apoc.text.jaroWinklerDistance(target_name_to_compare, source_name_to_compare) < $threshold
+                        WITH node_data, n, apoc.text.jaroWinklerDistance(target_name_to_compare, source_name_to_compare) as score
                         ORDER BY node_data.uuid, score DESC
-                        WITH node_data.uuid as source_uuid, node_data.name as source_name, collect({
+                        WITH node_data.uuid as source_uuid, node_data.name as source_name, collect({{
                             uuid: n.uuid,
                             name: n.name,
                             group_id: n.group_id,
                             score: score
-                        })[0] as best_match
+                        }})[0] as best_match
                         WHERE best_match IS NOT NULL
                         RETURN source_uuid, source_name, best_match.uuid as match_uuid, best_match.name as match_name,
                                best_match.group_id as match_group_id, best_match.score as score
-                        """
+                        """.format(source_case=source_case, target_case=target_case)
 
                         # Execute batch fuzzy search
                         batch_result = await self.driver.execute_query(
-                            batch_similarity_query,
+                            cast(LiteralString, batch_similarity_query),
                             params={
                                 'nodes': batch_nodes_data,
                                 'threshold': DISTANCE_THRESHOLD,
