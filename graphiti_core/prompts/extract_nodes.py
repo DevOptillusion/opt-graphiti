@@ -215,8 +215,33 @@ Guidelines:
             2. A change in relationship status (e.g., meeting for the first time, fighting).
             3. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
 
-3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
-4. **MemoryNote Extraction**: Must extract at least one, but no more than 2 MemoryNote from each act. Only extract MemoryNote if it is critical to the act.
+3. **Preference Extraction**:
+   - **Scope Restriction (Non-Human Only)**:
+     - STRICTLY RESTRICT preferences to **inanimate objects, concepts, locations, or activities** (e.g., Food, Music, Hobbies, Weather, Color, etc.).
+     - **FORBIDDEN CATEGORY**: The `category` field MUST NOT be 'Person', 'Character', 'Human', or 'Individual'.
+   
+   - **Differentiation Rule (Crucial)**:
+     - If the text indicates liking/disliking a **specific person** (e.g., "I like Paris"), this is a **RelationshipView**, not a Preference. Do NOT extract it here.
+     - If the text indicates liking a **type/role** of person generally (e.g., "I like honest people"), this IS a Preference (preference_category: 'Personality Trait', preference_value: 'Honesty').
+
+   - **Formatting**:
+     - Ensure the Preference has a clear Category and Value.
+     - *Valid Example*: Category: 'Drink', Value: 'Black Coffee'.
+     - *Invalid Example*: Category: 'Person', Value: 'Alice'. (STOP -> Move to RelationshipView).
+4. **MemoryNote Extraction**:
+   - **Quantity Control (Strict)**: 
+     - You MUST extract **at least 1** MemoryNote.
+     - You must NOT extract more than **2** MemoryNotes.
+   
+   - **Content Hierarchy**:
+     - **Note #1 (The Summary)**: Extract the primary topic, event, or action of this conversation. If the conversation is trivial, summarize the casual topic (e.g., "我和Paris第一次相遇了").
+     - **Note #2 (The Insight - Optional)**: Only extract a second note if there is a distinct, separate critical piece of information (e.g., a specific promise made, a secret revealed, or a plan changed,etc.).
+
+   - **Writing Style**:
+     - **Concise**: Keep each note under 20 words.
+     - **Objective**: Use third-person past tense (e.g., "Aria expressed concern about the mission," NOT "I am worried").
+     - **Self-Contained**: The note should make sense on its own without reading the chat history.
+
 5. Extract significant entities, concepts, or actors mentioned in the act.
 6. Avoid creating nodes for locations.
 7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
