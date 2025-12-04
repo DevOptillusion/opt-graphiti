@@ -216,19 +216,18 @@ Guidelines:
             3. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
 
 3. **Preference Extraction**:
-   - **Scope Restriction (Non-Human Only)**:
-     - STRICTLY RESTRICT preferences to **inanimate objects, concepts, locations, or activities** (e.g., Food, Music, Hobbies, Weather, Color, etc.).
-     - Only extract if it shows clear preference by the speaker.
-     - **FORBIDDEN CATEGORY**: The `category` field MUST NOT be 'Person', 'Character', 'Human', or 'Individual'.
+   - **Scope Restriction**: 
+     - Preference category cannot be 'Person'. Only extract for non-person categories (e.g., Food, Objects, Environment).
    
-   - **Differentiation Rule (Crucial)**:
-     - If the text indicates liking/disliking a **specific person** (e.g., "I like Paris"), this is a **RelationshipView**, not a Preference. Do NOT extract it here.
-     - If the text indicates liking a **type/role** of person generally (e.g., "I like honest people"), this IS a Preference (preference_category: 'Personality Trait', preference_value: 'Honesty').
-
-   - **Formatting**:
-     - Ensure the Preference has a clear Category and Value.
-     - *Valid Example*: Category: 'Drink', Value: 'Black Coffee'.
-     - *Invalid Example*: Category: 'Person', Value: 'Alice'. (STOP -> Move to RelationshipView).
+   - **The "Attitude Check" (CRITICAL)**:
+     - You must ONLY extract a Preference if the subject explicitly expresses a **Sentiment** (Like, Love, Hate, Dislike) or a **Habit** (Always uses, Refuses to use).
+     - **DO NOT EXTRACT** based on mere **Observation** or **Interaction**.
+     - *Invalid Example (Observation)*: "I looked around and saw an elevator." -> STOP. (No sentiment expressed).
+     - *Valid Example (Sentiment)*: "I was relieved to see the elevator because I hate stairs." -> EXTRACT (Category: Transit, Value: Elevators/No Stairs).
+     
+   - **Durability Rule**:
+     - Only extract preferences that seem to be a stable trait or opinion of the character.
+     - Ignore situational, one-time interactions involving background objects (like seeing a door, a chair, or an elevator).
 4. **MemoryNote Extraction**:
    - **Quantity Control (Strict)**: 
      - Only extract at most 1 MemoryNote from eact act and do not force extract if no key memory event happens in the act.
