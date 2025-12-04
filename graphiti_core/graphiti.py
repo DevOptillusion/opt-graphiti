@@ -765,7 +765,9 @@ class Graphiti:
                 hydrated_nodes = await extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
                 )
-                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels,n.uuid[-4:]) for n in hydrated_nodes]}')
+                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes:')
+                for n in hydrated_nodes:
+                    logger.info(f'  - {n.name} ({n.labels}, uuid: {n.uuid[-4:]})')
                 
                 # ==============================================================================
                 # Fuzzy  Name Collision Detection Hook (BATCHED OPTIMIZATION)
@@ -798,7 +800,6 @@ class Graphiti:
                                 'labels': node.labels if node.labels else [],
                             })
                             node_index_map[node.uuid] = idx
-                        print(f'[DEBUG] Batch nodes data: {batch_nodes_data}')
                         # Batch query to find all fuzzy matches in a single database call
                         batch_similarity_query = """
                         UNWIND $nodes AS node_data
@@ -813,14 +814,14 @@ class Graphiti:
                         AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower(node_data.name)) < $threshold
                         WITH node_data, n, apoc.text.jaroWinklerDistance(toLower(n.name), toLower(node_data.name)) as score
                         ORDER BY node_data.uuid, score DESC
-                        WITH node_data.uuid as source_uuid, collect({
+                        WITH node_data.uuid as source_uuid, node_data.name as source_name, collect({
                             uuid: n.uuid,
                             name: n.name,
                             group_id: n.group_id,
                             score: score
                         })[0] as best_match
                         WHERE best_match IS NOT NULL
-                        RETURN source_uuid, best_match.uuid as match_uuid, best_match.name as match_name,
+                        RETURN source_uuid, source_name, best_match.uuid as match_uuid, best_match.name as match_name,
                                best_match.group_id as match_group_id, best_match.score as score
                         """
 
@@ -840,6 +841,7 @@ class Graphiti:
                             batch_records = [
                                 {
                                     'source_uuid': record['source_uuid'],
+                                    'source_name': record['source_name'],
                                     'match_uuid': record['match_uuid'],
                                     'match_name': record['match_name'],
                                     'match_group_id': record['match_group_id'],
@@ -847,7 +849,9 @@ class Graphiti:
                                 }
                                 for record in batch_result.records
                             ]
-                            print(f'[DEBUG] Batch records: {batch_records}')
+                            print (f'[DEBUG] Fuzzy Collision Batch Records:')
+                            for record in batch_records:
+                                print(f'  - {record["source_name"]} (uuid: {record["source_uuid"][-4:]}) matches {record["match_name"]} (uuid: {record["match_uuid"][-4:]}) with score {record["score"]:.4f}')
                         elif isinstance(batch_result, tuple) and len(batch_result) > 0:
                             # Some drivers return (records, _, _)
                             batch_records = batch_result[0] if batch_result[0] else []
@@ -858,6 +862,7 @@ class Graphiti:
                             # Build a map of matches: source_uuid -> match_info
                             matches_map = {
                                 record['source_uuid']: {
+                                    'source_name': record.get('source_name', ''),
                                     'match_uuid': record['match_uuid'],
                                     'match_name': record['match_name'],
                                     'match_group_id': record['match_group_id'],
@@ -925,7 +930,7 @@ class Graphiti:
                                 if node_exists_in_db:
                                     # CASE 1: Both nodes are in DB. We need a real graph merge.
                                     logger.warning(
-                                        f"⚠️ (Merge DB). [Debug]Duplicate DB Nodes detected: {node.uuid} and {other_uuid}. Scheduling DB Merge."
+                                        f"⚠️ (Merge DB). [Debug]Duplicate DB Nodes detected: {node.name} (uuid: {node.uuid[-4:]}) and {other_name} (uuid: {other_uuid[-4:]}). Scheduling DB Merge."
                                     )
                                     # Construct the 'victim' node object for the DB merge function
                                     other_node_obj = type(node)(
