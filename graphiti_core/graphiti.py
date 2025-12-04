@@ -907,8 +907,8 @@ class Graphiti:
 
                                 # Debug: Log if score is exactly 0.00 (exact match)
                                 if score == 0.0:
-                                    logger.debug(
-                                        f"Exact name match found: '{node.name}' (uuid: {node.uuid}) "
+                                    logger.info(
+                                        f"Fuzzy Collision: Exact name match found: '{node.name}' (uuid: {node.uuid}) "
                                         f"matches '{other_name}' (uuid: {other_uuid})"
                                     )
 
