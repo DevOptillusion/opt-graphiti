@@ -216,7 +216,7 @@ Guidelines:
             3. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
 
 3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
-4. **MemoryNote Extraction**: Must extract at least one, but no more than 3 MemoryNote from each act. Please do not force to extract MemoryNote if there is no key memory information in the act.
+4. **MemoryNote Extraction**: Must extract at least one, but no more than 2 MemoryNote from each act. Only extract MemoryNote if it is critical to the act.
 5. Extract significant entities, concepts, or actors mentioned in the act.
 6. Avoid creating nodes for locations.
 7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
