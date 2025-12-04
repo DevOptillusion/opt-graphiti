@@ -772,7 +772,7 @@ class Graphiti:
                 # ==============================================================================
                 # Threshold: 0.0 to 1.0 (1.0 is exact match). 
                 # Note: This runs AFTER attribute extraction so nodes have complete data for merge decisions
-                DISTANCE_THRESHOLD = 0.2
+                DISTANCE_THRESHOLD = 0.15
                 fuzzy_collision = []
 
                 for node in hydrated_nodes:
