@@ -218,6 +218,7 @@ Guidelines:
 3. **Preference Extraction**:
    - **Scope Restriction (Non-Human Only)**:
      - STRICTLY RESTRICT preferences to **inanimate objects, concepts, locations, or activities** (e.g., Food, Music, Hobbies, Weather, Color, etc.).
+     - Only extract if it shows clear preference by the speaker.
      - **FORBIDDEN CATEGORY**: The `category` field MUST NOT be 'Person', 'Character', 'Human', or 'Individual'.
    
    - **Differentiation Rule (Crucial)**:
