@@ -55,10 +55,11 @@ from graphiti_core.utils.maintenance.edge_operations import (
 )
 from graphiti_core.utils.text_utils import MAX_SUMMARY_CHARS, truncate_at_sentence
 
+from graphiti_core.driver.driver import GraphDriver, GraphProvider
+
 logger = logging.getLogger(__name__)
 
 NodeSummaryFilter = Callable[[EntityNode], Awaitable[bool]]
-
 
 async def extract_nodes_reflexion(
     llm_client: LLMClient,
@@ -207,7 +208,6 @@ async def extract_nodes(
         extracted_nodes.append(new_node)
         logger.debug(f'Created new node: {new_node.name} (UUID: {new_node.uuid})')
 
-    logger.info(f'Extracted nodes: {[n.name for n in extracted_nodes]}')
 
     return extracted_nodes
 
@@ -234,6 +234,8 @@ async def _collect_candidate_nodes(
     )
 
     candidate_nodes: list[EntityNode] = [node for result in search_results for node in result.nodes]
+    # remove MemeoryNote from candidate_nodes
+    candidate_nodes = [node for node in candidate_nodes if node.labels[0] != 'MemoryNote']
 
     if existing_nodes_override is not None:
         candidate_nodes.extend(existing_nodes_override)
@@ -398,9 +400,33 @@ async def _resolve_with_llm(
             )
             resolved_node = extracted_node
 
+        # Validate that duplicates have matching entity types
+        if resolved_node.uuid != extracted_node.uuid:
+            # This is a duplicate - check if entity types match
+            if extracted_node.labels[0] != resolved_node.labels[0]:
+                # Entity types don't match - reject the duplicate resolution
+                logger.warning(
+                    'Rejecting duplicate resolution: entity types do not match. '
+                    'Extracted node "%s" (type: %s) vs resolved node "%s" (type: %s)',
+                    extracted_node.name,
+                    extracted_node.labels[0],
+                    resolved_node.name,
+                    resolved_node.labels[0],
+                )
+                # Treat as no duplicate
+                resolved_node = extracted_node
+
         state.resolved_nodes[original_index] = resolved_node
         state.uuid_map[extracted_node.uuid] = resolved_node.uuid
         if resolved_node.uuid != extracted_node.uuid:
+            logger.info(
+                'Found duplicate resolution by LLM: '
+                '-Extracted node "%s" (%s) vs resolved node "%s" (%s)',
+                extracted_node.name,
+                extracted_node.labels[0],
+                resolved_node.name,
+                resolved_node.labels[0],
+            )
             state.duplicate_pairs.append((extracted_node, resolved_node))
 
 
@@ -420,7 +446,7 @@ async def resolve_extracted_nodes(
         extracted_nodes,
         existing_nodes_override,
     )
-
+    logger.info(f'Existing candidate nodes from the hybrid search: {[(node.name, node.labels)for node in existing_nodes]}')
     indexes: DedupCandidateIndexes = _build_candidate_indexes(existing_nodes)
 
     state = DedupResolutionState(
@@ -440,6 +466,7 @@ async def resolve_extracted_nodes(
         previous_episodes,
         entity_types,
     )
+    
 
     for idx, node in enumerate(extracted_nodes):
         if state.resolved_nodes[idx] is None:
@@ -454,6 +481,20 @@ async def resolve_extracted_nodes(
     new_node_duplicates: list[
         tuple[EntityNode, EntityNode]
     ] = await filter_existing_duplicate_of_edges(driver, state.duplicate_pairs)
+    
+    # Final summary of all duplicates
+    if state.duplicate_pairs:
+        logger.info(
+            '[Final Summary] Total duplicates identified: %d pairs: %s',
+            len(state.duplicate_pairs),
+            [
+                (f'"{extracted.name}" ({extracted.labels[0] if extracted.labels else "Unknown"})',
+                 f'"{resolved.name}" ({resolved.labels[0] if resolved.labels else "Unknown"})')
+                for extracted, resolved in state.duplicate_pairs
+            ],
+        )
+    else:
+        logger.info('[Final Summary] No duplicates identified - all nodes are new')
 
     return (
         [node for node in state.resolved_nodes if node is not None],
@@ -509,9 +550,9 @@ async def extract_attributes_from_node(
     )
 
     # Extract summary if needed
-    await _extract_entity_summary(
-        llm_client, node, episode, previous_episodes, should_summarize_node
-    )
+    # await _extract_entity_summary(
+    #     llm_client, node, episode, previous_episodes, should_summarize_node
+    # )
 
     node.attributes.update(llm_response)
 
@@ -533,7 +574,11 @@ async def _extract_entity_attributes(
         node_data={
             'name': node.name,
             'entity_types': node.labels,
-            'attributes': node.attributes,
+            'attributes': {
+                k: v
+                for k, v in node.attributes.items()
+                if k not in ('name_embedding', 'description_embedding')
+            },
         },
         episode=episode,
         previous_episodes=previous_episodes,

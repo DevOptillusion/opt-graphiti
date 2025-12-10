@@ -201,7 +201,13 @@ def _resolve_with_similarity(
     state: DedupResolutionState,
 ) -> None:
     """Attempt deterministic resolution using exact name hits and fuzzy MinHash comparisons."""
+    print (f'[DEBUG] Resolving {len(extracted_nodes)} extracted nodes with similarity...')
     for idx, node in enumerate(extracted_nodes):
+        # Skip MemoryNote nodes from similarity resolution
+        if 'MemoryNote' in node.labels:
+            state.unresolved_indices.append(idx)
+            continue
+
         normalized_exact = _normalize_string_exact(node.name)
         normalized_fuzzy = _normalize_name_for_fuzzy(node.name)
 
@@ -210,11 +216,21 @@ def _resolve_with_similarity(
             continue
 
         existing_matches = indexes.normalized_existing.get(normalized_exact, [])
+        # Filter out MemoryNote nodes from matches
+        existing_matches = [m for m in existing_matches if 'MemoryNote' not in m.labels]
+        
         if len(existing_matches) == 1:
             match = existing_matches[0]
             state.resolved_nodes[idx] = match
             state.uuid_map[node.uuid] = match.uuid
             if match.uuid != node.uuid:
+                print('[DEBUG] Found duplicate resolution by similarity: '
+                            '-Extracted node "%s" (%s) vs resolved node "%s" (%s)',
+                            node.name,
+                            node.labels[0],
+                            match.name,
+                            match.labels[0],
+                        )
                 state.duplicate_pairs.append((node, match))
             continue
         if len(existing_matches) > 1:
@@ -230,16 +246,27 @@ def _resolve_with_similarity(
         best_candidate: EntityNode | None = None
         best_score = 0.0
         for candidate_id in candidate_ids:
+            candidate = indexes.nodes_by_uuid.get(candidate_id)
+            # Skip MemoryNote candidates
+            if candidate is None or 'MemoryNote' in candidate.labels:
+                continue
             candidate_shingles = indexes.shingles_by_candidate.get(candidate_id, set())
             score = _jaccard_similarity(shingles, candidate_shingles)
             if score > best_score:
                 best_score = score
-                best_candidate = indexes.nodes_by_uuid.get(candidate_id)
+                best_candidate = candidate
 
         if best_candidate is not None and best_score >= _FUZZY_JACCARD_THRESHOLD:
             state.resolved_nodes[idx] = best_candidate
             state.uuid_map[node.uuid] = best_candidate.uuid
             if best_candidate.uuid != node.uuid:
+                print('[DEBUG] Found duplicate resolution by fuzzy similarity: '
+                            '-Extracted node "%s" (%s) vs resolved node "%s" (%s)',
+                            node.name,
+                            node.labels[0],
+                            best_candidate.name,
+                            best_candidate.labels[0],
+                        )
                 state.duplicate_pairs.append((node, best_candidate))
             continue
 

@@ -17,6 +17,7 @@ limitations under the License.
 import logging
 from datetime import datetime
 from time import time
+from typing import cast
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -128,6 +129,15 @@ class AddTripletResults(BaseModel):
 
 
 class Graphiti:
+    # Mapping of entity type labels to attribute names used for fuzzy similarity comparison
+    # If an entity type is not in this map, it defaults to using 'name'
+    ENTITY_COMPARISON_ATTRIBUTES: dict[str, str] = {
+        'Person': 'person_name',
+        'RelationshipView': 'name',
+        # Add more entity types and their comparison attributes as needed
+        # Example: 'RelationshipView': 'name',
+    }
+
     def __init__(
         self,
         uri: str | None = None,
@@ -288,6 +298,38 @@ class Graphiti:
         else:
             return 'unknown'
 
+    def _build_comparison_case(self, prefix: str, is_source: bool) -> str:
+        """Build a CASE statement to select the appropriate comparison attribute based on entity type.
+        
+        Parameters
+        ----------
+        prefix : str
+            The prefix for the node variable in the Cypher query (e.g., 'node_data' or 'n')
+        is_source : bool
+            True if building for source node (node_data), False for target node (n)
+        
+        Returns
+        -------
+        str
+            A Cypher CASE statement that selects the appropriate comparison attribute
+        """
+        cases = []
+        for entity_type, attr_name in self.ENTITY_COMPARISON_ATTRIBUTES.items():
+            if is_source:
+                # For source (node_data), check labels and attribute existence
+                cases.append(
+                    f"WHEN '{entity_type}' IN {prefix}.labels AND {prefix}.{attr_name} IS NOT NULL "
+                    f"THEN toLower({prefix}.{attr_name})"
+                )
+            else:
+                # For target (n), check labels and property existence
+                cases.append(
+                    f"WHEN '{entity_type}' IN labels({prefix}) AND {prefix}.{attr_name} IS NOT NULL "
+                    f"THEN toLower({prefix}.{attr_name})"
+                )
+        cases.append(f"ELSE toLower({prefix}.name)")
+        return "CASE\n" + "\n".join(f"                             {case}" for case in cases) + "\n                             END"
+
     async def close(self):
         """
         Close the connection to the Neo4j database.
@@ -401,14 +443,22 @@ class Graphiti:
 
         edges = resolve_edge_pointers(extracted_edges, uuid_map)
 
-        resolved_edges, invalidated_edges = await resolve_extracted_edges(
-            self.clients,
-            edges,
-            episode,
-            nodes,
-            edge_types or {},
-            edge_type_map,
-        )
+        # [Debug] Bypass edge resolution/deduplication
+        # Ensure embeddings are generated so search still works
+        if edges:
+            await create_entity_edge_embeddings(self.embedder, edges)
+        
+        resolved_edges = edges
+        invalidated_edges = []
+
+        # resolved_edges, invalidated_edges = await resolve_extracted_edges(
+        #     self.clients,
+        #     edges,
+        #     episode,
+        #     nodes,
+        #     edge_types or {},
+        #     edge_type_map,
+        # )
 
         return resolved_edges, invalidated_edges
 
@@ -747,11 +797,338 @@ class Graphiti:
                     previous_episodes,
                     entity_types,
                 )
-                logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels) for n in nodes]}')
+                logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels, n.uuid[-4:]) for n in nodes]}')
+                # source: the node that is being processed
+                # target: the node that is found in the graph
                 if duplicates:
-                    logger.info(f'Duplicate nodes: {[(source.name,target.name)for source,target in duplicates]}')
+                    logger.info(f'Duplicate nodes from dedupe search (source, target): {[(source.name, source.labels, source.uuid[-4:], target.name, target.labels, target.uuid[-4:])for source,target in duplicates]}')
+                
+                # Extract node attributes
+                hydrated_nodes = await extract_attributes_from_nodes(
+                    self.clients, nodes, episode, previous_episodes, entity_types
+                )
+                print (f'Step 4: {len(hydrated_nodes)} Hydrated nodes:')
+                for n in hydrated_nodes:
+                    print (f'  - {n.name} ({n.labels}, uuid: {n.uuid[-4:]})')
+                
+                # ==============================================================================
+                # Fuzzy  Name Collision Detection Hook (BATCHED OPTIMIZATION)
+                # ==============================================================================
+                # Threshold: 0.0 to 1.0 (1.0 is exact match). 
+                # Note: This runs AFTER attribute extraction so nodes have complete data for merge decisions
+                DISTANCE_THRESHOLD = 0.15
+                fuzzy_collision = []
 
-                # Extract and resolve edges in parallel with attribute extraction
+                # Filter out MemoryNote nodes and prepare batch data
+                nodes_to_check = [
+                    node for node in hydrated_nodes
+                    if node.uuid and node.name and 'MemoryNote' not in node.labels
+                ]
+
+                if not nodes_to_check:
+                    # No nodes to check, skip fuzzy collision detection
+                    pass
+                else:
+                    try:
+                        # Prepare batch data for UNWIND query
+                        batch_nodes_data = []
+                        node_index_map = {}  # Map node UUID to index in nodes_to_check
+                        
+                        for idx, node in enumerate(nodes_to_check):
+                            node_data_entry = {
+                                'uuid': node.uuid,
+                                'name': node.name,
+                                'group_id': node.group_id,
+                                'labels': node.labels if node.labels else [],
+                            }
+                            # Include comparison attributes for each entity type based on mapping
+                            if node.attributes:
+                                for entity_type, attr_name in self.ENTITY_COMPARISON_ATTRIBUTES.items():
+                                    if entity_type in node.labels and attr_name in node.attributes:
+                                        node_data_entry[attr_name] = node.attributes.get(attr_name)
+                            batch_nodes_data.append(node_data_entry)
+                            node_index_map[node.uuid] = idx
+                        
+                        # Build dynamic CASE statements for source and target comparison attributes
+                        source_case = self._build_comparison_case("node_data", is_source=True)
+                        target_case = self._build_comparison_case("n", is_source=False)
+                        
+                        # Batch query to find all fuzzy matches in a single database call
+                        batch_similarity_query = """
+                        UNWIND $nodes AS node_data
+                        MATCH (n)
+                        WHERE n.uuid <> node_data.uuid
+                        AND n.group_id = node_data.group_id
+                        AND NOT 'MemoryNote' IN labels(n)
+                        AND (
+                            size(node_data.labels) = 0 
+                            OR any(label IN labels(n) WHERE label IN node_data.labels)
+                        )
+                        WITH node_data, n,
+                             {source_case} AS source_name_to_compare,
+                             {target_case} AS target_name_to_compare
+                        WHERE apoc.text.jaroWinklerDistance(target_name_to_compare, source_name_to_compare) < $threshold
+                        WITH node_data, n, apoc.text.jaroWinklerDistance(target_name_to_compare, source_name_to_compare) as score
+                        ORDER BY node_data.uuid, score DESC
+                        WITH node_data.uuid as source_uuid, node_data.name as source_name, collect({{
+                            uuid: n.uuid,
+                            name: n.name,
+                            group_id: n.group_id,
+                            score: score
+                        }})[0] as best_match
+                        WHERE best_match IS NOT NULL
+                        RETURN source_uuid, source_name, best_match.uuid as match_uuid, best_match.name as match_name,
+                               best_match.group_id as match_group_id, best_match.score as score
+                        """.format(source_case=source_case, target_case=target_case)
+
+                        # Execute batch fuzzy search
+                        batch_result = await self.driver.execute_query(
+                            cast(LiteralString, batch_similarity_query),
+                            params={
+                                'nodes': batch_nodes_data,
+                                'threshold': DISTANCE_THRESHOLD,
+                            },
+                        )
+
+                        # Extract records from result
+                        batch_records = []
+                        if hasattr(batch_result, 'records'):
+                            # Neo4j EagerResult format
+                            batch_records = [
+                                {
+                                    'source_uuid': record['source_uuid'],
+                                    'source_name': record['source_name'],
+                                    'match_uuid': record['match_uuid'],
+                                    'match_name': record['match_name'],
+                                    'match_group_id': record['match_group_id'],
+                                    'score': record['score'],
+                                }
+                                for record in batch_result.records
+                            ]
+                            print (f'[DEBUG] Fuzzy Collision Batch Records:')
+                            for record in batch_records:
+                                print(f'  - {record["source_name"]} (uuid: {record["source_uuid"][-4:]}) matches {record["match_name"]} (uuid: {record["match_uuid"][-4:]}) with score {record["score"]:.4f}')
+                        elif isinstance(batch_result, tuple) and len(batch_result) > 0:
+                            # Some drivers return (records, _, _)
+                            batch_records = batch_result[0] if batch_result[0] else []
+                        elif isinstance(batch_result, list):
+                            batch_records = batch_result
+
+                        if batch_records:
+                            # Build a map of matches: source_uuid -> match_info
+                            matches_map = {
+                                record['source_uuid']: {
+                                    'source_name': record.get('source_name', ''),
+                                    'match_uuid': record['match_uuid'],
+                                    'match_name': record['match_name'],
+                                    'match_group_id': record['match_group_id'],
+                                    'score': record['score'],
+                                }
+                                for record in batch_records
+                            }
+
+                            # Batch check which source nodes exist in DB
+                            source_uuids = list(matches_map.keys())
+                            batch_existence_query = """
+                            UNWIND $uuids AS uuid
+                            MATCH (n {uuid: uuid})
+                            RETURN n.uuid as uuid, count(n) > 0 as exists
+                            """
+                            existence_result = await self.driver.execute_query(
+                                batch_existence_query,
+                                params={'uuids': source_uuids},
+                            )
+
+                            # Extract existence results
+                            existence_map = {}
+                            if hasattr(existence_result, 'records'):
+                                existence_map = {
+                                    record['uuid']: record['exists']
+                                    for record in existence_result.records
+                                }
+                            elif isinstance(existence_result, tuple) and len(existence_result) > 0:
+                                existence_map = {
+                                    record['uuid']: record['exists']
+                                    for record in (existence_result[0] if existence_result[0] else [])
+                                }
+                            elif isinstance(existence_result, list):
+                                existence_map = {
+                                    record['uuid']: record['exists']
+                                    for record in existence_result
+                                }
+
+                            # Process all matches in memory
+                            for source_uuid, match_info in matches_map.items():
+                                node_idx = node_index_map[source_uuid]
+                                node = nodes_to_check[node_idx]
+                                
+                                other_uuid = match_info['match_uuid']
+                                other_name = match_info['match_name']
+                                other_group_id = match_info['match_group_id']
+                                score = match_info['score']
+
+                                # Debug: Log if score is exactly 0.00 (exact match)
+                                if score == 0.0:
+                                    logger.info(
+                                        f"Fuzzy Collision: Exact name match found: '{node.name}' (uuid: {node.uuid}) "
+                                        f"matches '{other_name}' (uuid: {other_uuid})"
+                                    )
+
+                                logger.warning(
+                                    f"⚠️ Fuzzy Collision (score: {score:.4f}): Resolved Node '{node.name}' "
+                                    f"({node.name} uuid: {node.uuid[-4:]}) matches existing '{other_name}', (uuid: {other_uuid[-4:]}) "
+                                    f"(Processing Merge..."
+                                )
+
+                                # Check if the 'source' node exists in DB
+                                node_exists_in_db = existence_map.get(node.uuid, False)
+
+                                if node_exists_in_db:
+                                    # CASE 1: Both nodes are in DB. We need a real graph merge.
+                                    logger.warning(
+                                        f"⚠️ (Merge DB). [Debug]Duplicate DB Nodes detected: {node.name} (uuid: {node.uuid[-4:]}) and {other_name} (uuid: {other_uuid[-4:]}). Scheduling DB Merge."
+                                    )
+                                    # Construct the 'victim' node object for the DB merge function
+                                    other_node_obj = type(node)(
+                                        uuid=other_uuid,
+                                        name=other_name,
+                                        group_id=other_group_id,
+                                        labels=[],
+                                    )
+                                    # Append to queue for DB merge: (node_to_remove=node, node_to_keep=other_node_obj)
+                                    fuzzy_collision.append((node, other_node_obj))
+
+                                else:
+                                    # CASE 2: New node collides with DB node. In-memory merge.
+                                    logger.info(
+                                        f"⚠️ (Merge In-Memory). [Debug]Merging New Node {node.uuid[-4:]} into Existing Node {other_uuid[-4:]} "
+                                    )
+
+                                    old_uuid = node.uuid
+                                    existing_uuid = other_uuid
+
+                                    # 1. Update the mapping: Any reference to the NEW uuid should point to EXISTING uuid
+                                    keys_to_update = [k for k, v in uuid_map.items() if v == old_uuid]
+                                    for k in keys_to_update:
+                                        uuid_map[k] = existing_uuid
+
+                                    # Also map the old uuid itself
+                                    uuid_map[old_uuid] = existing_uuid
+
+                                    # 2. Update the node object itself
+                                    node.uuid = existing_uuid
+                                    # Note: We keep the new attributes (name, description, etc.) from 'node'.
+                                    # When saved, these will overwrite/update the existing node's properties.
+
+                    except Exception as e:
+                        # Fallback mechanism if APOC is missing or query fails
+                        logger.error(
+                            f"Batch fuzzy check failed (likely APOC missing), falling back to sequential checks: {e}"
+                        )
+                        # Fallback to sequential processing if batch fails
+                        for node in nodes_to_check:
+                            try:
+                                query_params = {
+                                    "name": node.name,
+                                    "uuid": node.uuid,
+                                    "group_id": node.group_id,
+                                    "threshold": DISTANCE_THRESHOLD,
+                                }
+                                
+                                label_filter = ""
+                                if node.labels:
+                                    label_filter = "AND any(label IN labels(n) WHERE label IN $labels)"
+                                    query_params["labels"] = node.labels
+                                
+                                similarity_query = f"""
+                                MATCH (n)
+                                WHERE n.uuid <> $uuid
+                                AND n.group_id = $group_id
+                                AND NOT 'MemoryNote' IN labels(n)
+                                {label_filter}
+                                AND apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) < $threshold
+                                RETURN n.uuid, n.name, n.group_id, apoc.text.jaroWinklerDistance(toLower(n.name), toLower($name)) as score
+                                ORDER BY score DESC
+                                LIMIT 1
+                                """
+                                
+                                result = await self.driver.execute_query(
+                                    similarity_query,
+                                    params=query_params,
+                                )
+                                
+                                records = []
+                                if hasattr(result, 'records'):
+                                    records = [
+                                        {
+                                            'n.uuid': record['n.uuid'],
+                                            'n.name': record['n.name'],
+                                            'n.group_id': record.get('n.group_id', node.group_id),
+                                            'score': record['score'],
+                                        }
+                                        for record in result.records
+                                    ]
+                                elif isinstance(result, tuple) and len(result) > 0:
+                                    records = result[0] if result[0] else []
+                                elif isinstance(result, list):
+                                    records = result
+
+                                if records:
+                                    other_uuid = records[0]['n.uuid']
+                                    other_name = records[0]['n.name']
+                                    other_group_id = records[0].get('n.group_id', node.group_id)
+                                    score = records[0]['score']
+
+                                    check_query = "MATCH (n {uuid: $uuid}) RETURN count(n) as c"
+                                    check_res, _, _ = await self.driver.execute_query(check_query, uuid=node.uuid)
+                                    node_exists_in_db = check_res[0]['c'] > 0 if check_res else False
+
+                                    if node_exists_in_db:
+                                        other_node_obj = type(node)(
+                                            uuid=other_uuid,
+                                            name=other_name,
+                                            group_id=other_group_id,
+                                            labels=[],
+                                        )
+                                        fuzzy_collision.append((node, other_node_obj))
+                                    else:
+                                        old_uuid = node.uuid
+                                        existing_uuid = other_uuid
+                                        keys_to_update = [k for k, v in uuid_map.items() if v == old_uuid]
+                                        for k in keys_to_update:
+                                            uuid_map[k] = existing_uuid
+                                        uuid_map[old_uuid] = existing_uuid
+                                        node.uuid = existing_uuid
+                            except Exception as fallback_error:
+                                logger.error(f"Fallback fuzzy check failed for node {node.uuid}: {fallback_error}")
+                
+                # ==============================================================================
+                # [Snippet End]
+                # ==============================================================================
+                
+                if fuzzy_collision:
+                    logger.info(f'=============Start  of Fuzzy Collision Merge==================')
+                    logger.info(f'Duplicate nodes in the current graph: {[(source.name,target.name)for source,target in fuzzy_collision]}')
+
+                    # This function physically updates the graph and deletes the 'source' nodes
+                    await self.merge_duplicate_nodes(fuzzy_collision)
+
+                    # Cleanup Processing Queue
+                    # The fuzzy collision logic merged some nodes and deleted them.
+                    # We must remove these deleted nodes from the 'hydrated_nodes' list to prevent 
+                    # errors in subsequent steps (Saving).
+                    
+                    # Identify UUIDs of nodes that were just deleted (the first item in the tuple)
+                    sacrificed_uuids = {src.uuid for src, target in fuzzy_collision if src.uuid}
+                    
+                    original_count = len(hydrated_nodes)
+                    # Filter the list: Keep only nodes that are NOT in the sacrificed set
+                    hydrated_nodes = [n for n in hydrated_nodes if n.uuid not in sacrificed_uuids]
+                    
+                    logger.info(f"Cleanup: Removed {len(sacrificed_uuids)} nodes from the processing queue.")
+                    logger.info(f'=============End  of Fuzzy Collision Merge==================')
+                
+                # Extract and resolve edges
                 resolved_edges, invalidated_edges = await self._extract_and_resolve_edges(
                     episode,
                     extracted_nodes,
@@ -759,19 +1136,13 @@ class Graphiti:
                     edge_type_map or edge_type_map_default,
                     group_id,
                     edge_types,
-                    nodes,
+                    hydrated_nodes,
                     uuid_map,
                 )
                 if resolved_edges:
-                    logger.info(f'Step 4: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
+                    logger.info(f'Step 5: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
                 if invalidated_edges:
                     logger.info(f'{len(invalidated_edges)} Invalidated edges: {[(e.name, e.fact) for e in invalidated_edges]}')
-
-                # Extract node attributes
-                hydrated_nodes = await extract_attributes_from_nodes(
-                    self.clients, nodes, episode, previous_episodes, entity_types
-                )
-                logger.info(f'Step 5: {len(hydrated_nodes)} Hydrated nodes: {[(n.name, n.labels) for n in hydrated_nodes]}')
                 entity_edges = resolved_edges + invalidated_edges
 
                 # Process and save episode data
@@ -830,6 +1201,7 @@ class Graphiti:
                 span.set_status('error', str(e))
                 span.record_exception(e)
                 raise e
+            
 
     async def add_episode_bulk(
         self,
@@ -1257,3 +1629,97 @@ class Graphiti:
         await Node.delete_by_uuids(self.driver, [node.uuid for node in nodes_to_delete])
 
         await episode.delete(self.driver)
+
+    async def merge_duplicate_nodes(self, duplicates):
+        """
+        duplicates: List of tuples [(node_to_remove, node_to_keep), ...]
+        """
+        if not duplicates:
+            return
+
+        # We iterate through the pairs
+        for node_to_remove, node_to_keep  in duplicates:
+            
+            # Check if both have UUIDs (safety check)
+            if not node_to_remove.uuid or not node_to_keep.uuid:
+                continue
+
+            query = """
+            MATCH (keep {uuid: $keep_uuid})
+            MATCH (discard {uuid: $discard_uuid})
+            
+            // APOC Merge -- a refresh is needed to clear the neo4j browser cache in-order to show the discarded node.
+            // The first node in the list [keep, discard] is the "primary" that survives.
+            CALL apoc.refactor.mergeNodes([keep, discard], {
+                properties: {
+                    // Rule: If both have this property, combine them into a list (great for history)
+                    aliases: 'combine',
+                    shared_history: 'combine',
+
+                    
+                    // Rule: For everything else, keep the value from the 'keep' node
+                    // 'discard' here means "discard the incoming value", keeping the original
+                    name: 'discard',
+                    // Person Attributes
+                    description: 'discard',
+                    //RelationshipView Attributes
+                    holder_name: 'discard',
+                    target_name: 'discard',
+                    familarity: 'discard',
+                    current_attitude: 'discard',
+                    current_attitude_evidence_summary: 'discard',
+                    
+                    // Catch-all for other properties
+                    `.*`: 'discard'
+                },
+                mergeRels: true
+            })
+            YIELD node
+            RETURN node
+            """
+            logger.info(f'Executing immediate merge for {node_to_remove.name} - {node_to_remove.uuid[-4:]} and {node_to_keep.name} - {node_to_keep.uuid[-4:]}')
+            
+            result, _, _ = await self.driver.execute_query(
+                query,
+                params={
+                    'keep_uuid': node_to_keep.uuid,
+                    'discard_uuid': node_to_remove.uuid,
+                },
+            )
+
+            if not result:
+                logger.warning("⚠️ Merge query returned 0 records. This implies the MATCH failed (one of the nodes was not found). Running diagnostics...")
+                
+                # Diagnostics: Check which node is missing
+                diag_query = """
+                OPTIONAL MATCH (keep {uuid: $keep_uuid})
+                OPTIONAL MATCH (discard {uuid: $discard_uuid})
+                RETURN keep IS NOT NULL as keep_exists, discard IS NOT NULL as discard_exists
+                """
+                diag_result, _, _ = await self.driver.execute_query(
+                    diag_query,
+                    params={
+                        'keep_uuid': node_to_keep.uuid,
+                        'discard_uuid': node_to_remove.uuid,
+                    }
+                )
+                if diag_result:
+                    record = diag_result[0]
+                    logger.warning(f"Diagnostics: Keep Node Exists? {record['keep_exists']}, Discard Node Exists? {record['discard_exists']}")
+                    logger.warning(f"UUIDs used - Keep: {node_to_keep.uuid}, Discard: {node_to_remove.uuid}")
+            else:
+                logger.info("Merge operation returned a result (success).")
+
+            # Verification: Check if the discarded node still exists
+            check_query = "MATCH (n {uuid: $discard_uuid}) RETURN n"
+            result, _, _ = await self.driver.execute_query(
+                check_query,
+                params={'discard_uuid': node_to_remove.uuid},
+            )
+
+            if not result:
+                logger.info(f"✅ Merge verified: Node {node_to_remove.uuid[-4:]} no longer exists.")
+            else:
+                logger.warning(
+                    f"⚠️ Merge verification failed: Node {node_to_remove.uuid[-4:]} still exists after merge operation."
+                )

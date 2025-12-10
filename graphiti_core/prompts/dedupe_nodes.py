@@ -81,14 +81,20 @@ def node(context: dict[str, Any]) -> list[Message]:
         </EXISTING ENTITIES>
         
         Given the above EXISTING ENTITIES and their attributes, MESSAGE, and PREVIOUS MESSAGES; Determine if the NEW ENTITY extracted from the conversation
-        is a duplicate entity of one of the EXISTING ENTITIES.
+        is a duplicate entity of one of the EXISTING ENTITIES with the same entity_types.
         
         Entities should only be considered duplicates if they refer to the *same real-world object or concept*.
         Semantic Equivalence: if a descriptive label in existing_entities clearly refers to a named entity in context, treat them as duplicates.
 
+        Guidelines for each entity_type:
+        - Person: Be careful on Person, if you are not sure whether they are the same person, do not mark them as duplicates.
+        - RelationshipView: it has format "holder_name:target_name", if you think two relationshipView Nodes have the same holder person and also the same target person, they are duplicates.
+        - MemoryNote: Please never mark MemoryNote as duplicates to anothe MemoryNote Node.
+
         Do NOT mark entities as duplicates if:
         - They are related but distinct.
         - They have similar names or purposes but refer to separate instances or concepts.
+        - They have different entity_types.
 
          TASK:
          1. Compare `new_entity` against each item in `existing_entities`.
@@ -123,67 +129,77 @@ def nodes(context: dict[str, Any]) -> list[Message]:
         ),
         Message(
             role='user',
-            content=f"""
-        <PREVIOUS MESSAGES>
-        {to_prompt_json([ep for ep in context['previous_episodes']])}
-        </PREVIOUS MESSAGES>
-        <CURRENT MESSAGE>
-        {context['episode_content']}
-        </CURRENT MESSAGE>
+                content=f"""
+<DATA_CONTEXT>
+    <PREVIOUS MESSAGES>
+    {to_prompt_json([ep for ep in context['previous_episodes'][-1:]])}
+    </PREVIOUS MESSAGES>
+    <CURRENT MESSAGE>
+    {context['episode_content']}
+    </CURRENT MESSAGE>
+    
+    <NEW ENTITIES>
+    {to_prompt_json(context['extracted_nodes'])} 
+    </NEW ENTITIES>
+    
+    <EXISTING ENTITIES>
+    {to_prompt_json(context['existing_nodes'])}
+    </EXISTING ENTITIES>
+</DATA_CONTEXT>
 
+<INSTRUCTIONS>
+You have been provided with a list of `<NEW ENTITIES>`. 
+**TASK:** Iterate through **EACH** item in `<NEW ENTITIES>` and determine if it is a duplicate of any item in `<EXISTING ENTITIES>`.
 
-        Each of the following ENTITIES were extracted from the CURRENT MESSAGE.
-        Each entity in ENTITIES is represented as a JSON object with the following structure:
+For **EVERY SINGLE ENTITY** in the list, execute this **Decision Algorithm**:
+
+**STEP 1: CHECK THE ENTITY TYPE (Strict Logic Gate)**
+Check the `entity_types` of the current entity being processed.
+
+* **IF entity_types == "MemoryNote"**:
+    * **RULE:** NEVER merge. MemoryNotes are distinct temporal thoughts.
+    * **ACTION:** STOP. Return `duplicate_idx: -1`.
+
+* **IF entity_types == "RelationshipView"**:
+    * **RULE:** Strict Structural Match. The name format is "HolderName:TargetName". If you think the holder and target are the same person, they are duplicates.
+    * **ACTION:** Only merge if you think the holder and target are the same person, they are duplicates. Note, sometimes the same target can have different names. For examples, a person was known as '陌生男人'，but based on the history, it can be the same target of a later one.
+
+* **IF entity_types == "Person"**:
+    * **RULE:** High Ambiguity Caution. If the name matches，it is a duplicate.
+    * **ACTION:** Use context to confirm identity. If names are similar but distinct (e.g. "John S." vs "John D."), return `duplicate_idx: -1`.
+
+* **ALL OTHER entity_types**:
+    * **ACTION:** Proceed to Step 2.
+
+**STEP 2: SEMANTIC COMPARISON (Only if Step 1 allowed it)**
+* Compare the current entity against `<EXISTING ENTITIES>`.
+* Entities are duplicates ONLY if they refer to the *same real-world object*.
+* Use `<PREVIOUS MESSAGES>` to resolve pronouns.
+
+**STEP 3: OUTPUT**
+* Add the result to the output array.
+</INSTRUCTIONS>
+
+Respond with a JSON object containing an "entity_resolutions" array. 
+**The array must contain exactly one result object for every item in `<NEW ENTITIES>`**.
+
+Structure:
+{{
+    "entity_resolutions": [
         {{
-            id: integer id of the entity,
-            name: "name of the entity",
-            entity_type: ["Entity", "<optional additional label>", ...],
-            entity_type_description: "Description of what the entity type represents"
-        }}
+            "id": integer id from the NEW ENTITY being processed,
+            "name": "the best full name",
+            "duplicate_idx": integer index of the best duplicate in EXISTING ENTITIES, or -1 if none,
+            "duplicates": [sorted list of all duplicate indices]
+        }},
+        ... (repeat for next entity) ...
+    ]
+}}
 
-        <ENTITIES>
-        {to_prompt_json(context['extracted_nodes'])}
-        </ENTITIES>
-
-        <EXISTING ENTITIES>
-        {to_prompt_json(context['existing_nodes'])}
-        </EXISTING ENTITIES>
-
-        Each entry in EXISTING ENTITIES is an object with the following structure:
-        {{
-            idx: integer index of the candidate entity (use this when referencing a duplicate),
-            name: "name of the candidate entity",
-            entity_types: ["Entity", "<optional additional label>", ...],
-            ...<additional attributes such as summaries or metadata>
-        }}
-
-        For each of the above ENTITIES, determine if the entity is a duplicate of any of the EXISTING ENTITIES.
-
-        Entities should only be considered duplicates if they refer to the *same real-world object or concept*.
-
-        Do NOT mark entities as duplicates if:
-        - They are related but distinct.
-        - They have similar names or purposes but refer to separate instances or concepts.
-
-        if the ENTITY is a Person, please mark it as a duplicate of the EXISTING ENTITIES if the ENTITY can be the first name of the EXISTING ENTITIES, or the EXISTING ENTITIES can be the first name of the ENTITY.
-        For example, "Aria" and "Aria Westcott" are the same person.
-
-        Task:
-        ENTITIES contains {len(context['extracted_nodes'])} entities with IDs 0 through {len(context['extracted_nodes']) - 1}.
-        Your response MUST include EXACTLY {len(context['extracted_nodes'])} resolutions with IDs 0 through {len(context['extracted_nodes']) - 1}. Do not skip or add IDs.
-
-        For every entity, return an object with the following keys:
-        {{
-            "id": integer id from ENTITIES,
-            "name": the best full name for the entity (preserve the original name unless a duplicate has a more complete name),
-            "duplicate_idx": the idx of the EXISTING ENTITY that is the best duplicate match, or -1 if there is no duplicate,
-            "duplicates": a sorted list of all idx values from EXISTING ENTITIES that refer to duplicates (deduplicate the list, use [] when none or unsure)
-        }}
-
-        - Only use idx values that appear in EXISTING ENTITIES.
-        - Set duplicate_idx to the smallest idx you collected for that entity, or -1 if duplicates is empty.
-        - Never fabricate entities or indices.
-        """,
+    - Only use idx values that appear in EXISTING ENTITIES.
+    - Set duplicate_idx to the smallest idx you collected for that entity, or -1 if duplicates is empty.
+    - Never fabricate entities or indices.
+""",
         ),
     ]
 

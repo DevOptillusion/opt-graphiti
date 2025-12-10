@@ -185,18 +185,60 @@ Indicate the classified entity type by providing its entity_type_id.
 {context['custom_prompt']}
 
 Guidelines:
-1. **Person Extraction**: 
-   - if you see '我'as the person, the person is the same as 'Aria', Use explicitly named 'Aria' as the person. 
-   - Aria is also the narrator, so 旁白 refers to Aria as well.
-   - Do not extract unimportant person with name like '路人甲','工作人员'. 
-   - Please pay attention to unkown persons that whether you can find the name in the text.
-2. **RelationshipView Extraction**: 
-    - Must use the format 'holder_name:target_name' as the name for RelationshipView. For holder_name and target_name, only use first name, do not use last name.
-    - Must extract RelationshipView of 'Aria(Aria Westcott)' to those people individually if they Aria meets them in the act: 'Paris','Elliot'. e.g. 'Aria:Paris'.
-    - For other people that Aria meets, please decide whether you think a RelationshipView should be extracted for them. If you think so, please extract the RelationshipView of Aria to them.
+1. **Person Extraction**:
+   - **Canonicalization (Narrator/Self)**:
+     - The First Person ('我') and the Narrator ('旁白') MUST always be extracted as the named node **'Aria'**.
+     - NEVER create nodes named '我', '旁白'.
+   
+   - **Noise Filtering (Generic Roles)**:
+     - DO NOT extract generic, unnamed background characters (e.g., '路人甲', '工作人员').
+     - **Exception**: Only extract them if they are CRITICAL to the act AND appear in multiple interactions.
 
-3. **Preference Extraction**: Preference category cannot be 'Person'. Preference only to non-person categories.
-4. **MemoryNote Extraction**: Must extract at least one MemoryNote from each act.
+   - **Name Resolution **:
+     - **Strict Rule**: Prefer to use the first name.
+     - **Action**: 
+       - If the name is revealed (e.g., "The stranger said, 'Call me **Dante**'"), extract as 'Dante'.
+2. **RelationshipView Extraction**:
+    - **Format**: Must strictly use 'holder_name:target_name'.
+    - **Name Resolution**: 
+        - Use the **First Name** of the person. 
+        - **EXCEPTION**: If there are multiple people with the same first name (e.g., two 'John's), you MUST include the Last Name or a distinct descriptor to avoid collision (e.g., 'JohnS', 'JohnD').
+    - **Type Constraint**: Both Holder and Target must be strictly of type **Person**. Do not extract for places, organizations, or objects.
+    - **Directionality (CRITICAL)**: 
+        - The **Holder** is the person *feeling, thinking, or perceiving* of another person.
+        - The **Target** is the person *being observed*.
+        - Example: If text says "Paris finds Elliot annoying", extract 'Paris:Elliot' (Paris holds the view).
+    - **Extraction Threshold**:
+        - **Always Extract**: 'Aria:Paris', 'Aria:Elliot' (if they interact in the scene).
+        - **Others**: Only extract a RelationshipView if there is a **meaningful interaction** involving:
+            1. An explicit opinion or sentiment (e.g., liking, distrusting).
+            2. A change in relationship status (e.g., meeting for the first time, fighting).
+            3. If the act only has Aria and one other person, extract the RelationshipView of Aria to the other person.
+
+3. **Preference Extraction**:
+   - **Scope Restriction**: 
+     - Preference category cannot be 'Person'. Only extract for non-person categories (e.g., Food, Objects, Environment).
+   
+   - **The "Attitude Check" (CRITICAL)**:
+     - You must ONLY extract a Preference if the subject explicitly expresses a **Sentiment** (Like, Love, Hate, Dislike) or a **Habit** (Always uses, Refuses to use).
+     - **DO NOT EXTRACT** based on mere **Observation** or **Interaction**.
+     - *Invalid Example (Observation)*: "I looked around and saw an elevator." -> STOP. (No sentiment expressed).
+     - *Valid Example (Sentiment)*: "I was relieved to see the elevator because I hate stairs." -> EXTRACT (Category: Transit, Value: Elevators/No Stairs).
+     
+   - **Durability Rule**:
+     - Only extract preferences that seem to be a stable trait or opinion of the character.
+     - Ignore situational, one-time interactions involving background objects (like seeing a door, a chair, or an elevator).
+4. **MemoryNote Extraction**:
+   - **Quantity Control (Strict)**: 
+     - Only extract at most 1 MemoryNote from eact act and do not force extract if no key memory event happens in the act.
+   
+   - **Content Hierarchy**:
+     - **Note #1 (The Summary)**: Extract the primary topic, event, or action of this conversation. If the conversation is trivial, summarize the casual topic (e.g., "我和Paris第一次相遇了").
+   - **Writing Style**:
+     - **Concise**: Keep each note under 20 words.
+     - **Objective**: Use third-person past tense (e.g., "Aria expressed concern about the mission," NOT "I am worried").
+     - **Self-Contained**: The note should make sense on its own without reading the chat history.
+
 5. Extract significant entities, concepts, or actors mentioned in the act.
 6. Avoid creating nodes for locations.
 7. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
@@ -285,7 +327,6 @@ def extract_attributes(context: dict[str, Any]) -> list[Message]:
         
 
         <MESSAGES>
-        {to_prompt_json(context['previous_episodes'])}
         {to_prompt_json(context['episode_content'])}
         </MESSAGES>
 
@@ -308,12 +349,11 @@ def extract_summary(context: dict[str, Any]) -> list[Message]:
             content=f"""
         Given the MESSAGES and the ENTITY, update the summary that combines relevant information about the entity
         from the messages and relevant information from the existing summary.
-        Please restrict the summary to be no more than 3 sentences.
+        Please restrict the summary to be no more than 2 sentences.
 
         {summary_instructions}
 
         <MESSAGES>
-        {to_prompt_json(context['previous_episodes'])}
         {to_prompt_json(context['episode_content'])}
         </MESSAGES>
 
