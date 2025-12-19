@@ -8,10 +8,11 @@ from logging import INFO
 
 from dotenv import load_dotenv
 
-from graphiti_core.llm_client import LLMConfig, OpenAIClient, GrokClient, GeminiClient
+from graphiti_core.llm_client import LLMConfig, GeminiClient
 
 from graphiti_core import Graphiti
 from graphiti_core.nodes import EpisodeType
+from graphiti_core.search.search_config import SearchConfig
 from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_RRF
 from pytz import timezone as pytz_timezone
 
@@ -26,55 +27,40 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+load_dotenv(dotenv_path=env_file)
 
-# OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-# # Custom configuration
-# config = LLMConfig(
-#     api_key=OPENAI_API_KEY,
-#     model="gpt-4.1",  # Custom primary model
-#     small_model="gpt-4o-mini",  # Custom small model
-#     #temperature=0,
-#     max_tokens=8192
-# )
-# llm_client = OpenAIClient(config=config)
+def get_llm_client():
+    """Get LLM client with fallback options"""
+    gemini_api_key = os.environ.get('GEMINI_API_KEY_MEMORY')
+    
+    if not gemini_api_key:
+        raise ValueError(
+            'GEMINI_API_KEY_MEMORY environment variable is not set.\n'
+            'Please set it in one of the following ways:\n'
+            '1. Create a .env file in the project root with: GEMINI_API_KEY_MEMORY=your_key\n'
+            '2. Set it in PyCharm: Run -> Edit Configurations -> Environment Variables\n'
+            '3. Export it in terminal: export GEMINI_API_KEY_MEMORY=your_key'
+        )
+    
+    gemini_config = LLMConfig(
+        api_key=gemini_api_key,
+        model="gemini-2.5-flash",
+        small_model="gemini-2.5-flash",
+        max_tokens=8192
+    )
+    return GeminiClient(config=gemini_config)
 
-# GROK_API_KEY_MEMORY = os.environ.get('GROK_API_KEY_MEMORY')
-# # use grok client
-# config = LLMConfig(
-#     api_key=GROK_API_KEY_MEMORY,
-#     model="grok-4-fast-non-reasoning",  # Custom primary model
-#     small_model="grok-4-fast-non-reasoning",  # Custom small model
-#     #temperature=0,
-#     max_tokens=8192
-# )
-# llm_client = GrokClient(config=config)
-
-# gemini flash seems okay, but may need further evaluations
-# Gemini configuration
-GEMINI_API_KEY_MEMORY = os.environ.get('GEMINI_API_KEY_MEMORY')
-# use gemini client
-gemini_config = LLMConfig(
-    api_key=GEMINI_API_KEY_MEMORY,
-    model="gemini-2.5-flash",  # Custom primary model 
-    small_model="gemini-2.5-flash",  # Custom small model
-    #temperature=0,
-    max_tokens=8192
-)
-llm_client = GeminiClient(config=gemini_config)
-
-
-# Neo4j connection parameters
-# Make sure Neo4j Desktop is running with a local DBMS started
-neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
-neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
-# neo4j_database = os.environ.get('NEO4J_DATABASE', 'actdb')
-neo4j_password = os.environ.get('NEO4J_PASSWORD', 'Echo0228')
-
-if not neo4j_uri or not neo4j_user or not neo4j_password:
-    raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
-
-print('success!')
+def get_neo4j_config():
+    """Get Neo4j configuration"""
+    neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
+    neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
+    neo4j_password = os.environ.get('NEO4J_PASSWORD', 'Echo0228')
+    
+    if not neo4j_uri or not neo4j_user or not neo4j_password:
+        raise ValueError('NEO4J_URI, NEO4J_USER, and NEO4J_PASSWORD must be set')
+    
+    return neo4j_uri, neo4j_user, neo4j_password
 
 async def create_custom_relationship_types(graphiti):
     """Create custom relationship types based on the name property of RELATES_TO relationships"""
@@ -185,6 +171,7 @@ async def export_database(memory_build_acts=None):
     print("📤 Exporting database...")
     try:
         import subprocess
+        import sys
         import os
         import json
         from datetime import datetime
@@ -197,8 +184,8 @@ async def export_database(memory_build_acts=None):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_dir = os.path.join(main_dir, timestamp)
         
-        # Export database using existing script
-        result = subprocess.run(['python', 'export_nodes.py', output_dir], 
+        # Export database using existing script with the same Python interpreter
+        result = subprocess.run([sys.executable, 'export_nodes.py', output_dir], 
                               capture_output=True, text=True, cwd='.')
         if result.returncode == 0:
             print(f"✅ Database exported successfully to {output_dir}/")
@@ -219,16 +206,19 @@ async def export_database(memory_build_acts=None):
         print(f"❌ Error during export: {e}")
         return None
 
-async def initialize_database(graphiti):
+async def initialize_database(graphiti, clear_db=False):
     """
     Initialize the database with indices and constraints.
     This only needs to be done once when setting up the database.
     
     Args:
         graphiti: Graphiti instance
+        clear_db: Whether to clear the database before initializing (default: False)
     """
-    # Clear the database before starting
-    await clear_database(graphiti)
+    # Clear the database before starting (optional)
+    if clear_db:
+        await clear_database(graphiti)
+    
     # Initialize the graph database with graphiti's indices. This only needs to be done once.
     await graphiti.build_indices_and_constraints()
     
@@ -241,23 +231,39 @@ async def initialize_database(graphiti):
         ON EACH [n.name, n.summary]"""
         
         await graphiti.driver.execute_query(custom_index_query)
-        print("Custom fulltext index 'person_search'created successfully!")
+        print("Custom fulltext index 'person_search' created successfully!")
 
         # Create fulltext index for relationship_view_search
         custom_index_query = """CREATE FULLTEXT INDEX relationship_view_search IF NOT EXISTS
         FOR (n:RelationshipView) 
-        ON EACH [n.name]"""
+        ON EACH [n.name, n.summary]"""
         
         await graphiti.driver.execute_query(custom_index_query)
-        print("Custom fulltext index 'relationship_view_search'created successfully!")
+        print("Custom fulltext index 'relationship_view_search' created successfully!")
 
         # Create fulltext index for preference_search
         custom_index_query = """CREATE FULLTEXT INDEX preference_search IF NOT EXISTS
         FOR (n:Preference) 
-        ON EACH [n.name,n.preference_value,n.preference_value]"""
+        ON EACH [n.name, n.summary]"""
         
         await graphiti.driver.execute_query(custom_index_query)
-        print("Custom fulltext index 'preference_search'created successfully!")
+        print("Custom fulltext index 'preference_search' created successfully!")
+        
+        # Create fulltext index for belief_search
+        custom_index_query = """CREATE FULLTEXT INDEX belief_search IF NOT EXISTS
+        FOR (n:Belief) 
+        ON EACH [n.name, n.summary]"""
+        
+        await graphiti.driver.execute_query(custom_index_query)
+        print("Custom fulltext index 'belief_search' created successfully!")
+        
+        # Create fulltext index for memory_note_search
+        custom_index_query = """CREATE FULLTEXT INDEX memory_note_search IF NOT EXISTS
+        FOR (n:MemoryNote) 
+        ON EACH [n.name, n.summary]"""
+        
+        await graphiti.driver.execute_query(custom_index_query)
+        print("Custom fulltext index 'memory_note_search' created successfully!")
         
     except Exception as e:
         print(f"Error creating custom index: {e}")
@@ -308,14 +314,17 @@ async def process_acts(file_path=None, memory_build_episodes=None):
     Returns:
         Result of the processing
     """
-    # Initialize Graphiti with Neo4j connection
+    llm_client = get_llm_client()
+    neo4j_uri, neo4j_user, neo4j_password = get_neo4j_config()
+    
     graphiti = Graphiti(
         neo4j_uri, neo4j_user, neo4j_password,
         llm_client=llm_client
     )
     try:
         # Initialize database (only needed once)
-        await initialize_database(graphiti)
+        # clear_db=True will clear all existing data in the database
+        await initialize_database(graphiti, clear_db=True)
         
         # Debug: Check what indexes and procedures are available
         print("=== Database Debug Info ===")
@@ -346,7 +355,10 @@ async def process_acts(file_path=None, memory_build_episodes=None):
                 file_path = 'real_act_samples.json'
             with open(file_path, 'r', encoding='utf-8') as f:
                 episodes = json.load(f)
-            memory_build_episodes = episodes[:2]  # Default to first 3
+            # WORKAROUND: Due to a bug in graphiti_core with custom entity types,
+            # we can only process one episode at a time
+            memory_build_episodes = episodes[:1]  # Process only first episode
+            print(f"⚠️  Note: Processing only 1 episode at a time due to graphiti_core bug with custom entity types")
         
         # Process the episode data
         await process_episodes_data(graphiti, memory_build_episodes)
