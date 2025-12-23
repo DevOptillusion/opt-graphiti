@@ -761,6 +761,7 @@ class Graphiti:
 
                 # Get or creat episode by name match
                 logger.info(f'Step 1: Get or create episode: {name} in group {group_id}')
+                step_start = time()
                 episode = await EpisodicNode.get_by_name(self.driver, name,group_id=group_id)
                 if episode is None:
                     logger.info(f'🆕 New episode {name} created in group {group_id}')
@@ -789,6 +790,9 @@ class Graphiti:
                 extracted_nodes = await extract_nodes(
                     self.clients, episode, previous_episodes, entity_types, excluded_entity_types
                 )
+                step_duration = time() - step_start
+                logger.info(f'[PERF]Step 1 completed in {step_duration:.2f}s')
+                step_start = time()
                 logger.info(f'Step 2: {len(extracted_nodes)} Extracted nodes: {[(n.name, n.labels) for n in extracted_nodes]}')
                 nodes, uuid_map, duplicates = await resolve_extracted_nodes(
                     self.clients,
@@ -797,6 +801,9 @@ class Graphiti:
                     previous_episodes,
                     entity_types,
                 )
+                step_duration = time() - step_start
+                logger.info(f'[PERF]Step 2 completed in {step_duration:.2f}s')
+                step_start = time()
                 logger.info(f'Step 3: {len(nodes)} Resolved nodes: {[(n.name, n.labels, n.uuid[-4:]) for n in nodes]}')
                 # source: the node that is being processed
                 # target: the node that is found in the graph
@@ -807,7 +814,10 @@ class Graphiti:
                 hydrated_nodes = await extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
                 )
-                print (f'Step 4: {len(hydrated_nodes)} Hydrated nodes:')
+                step_duration = time() - step_start
+                logger.info(f'[PERF]Step 3 completed in {step_duration:.2f}s')
+                step_start = time()
+                logger.info(f'Step 4: {len(hydrated_nodes)} Hydrated nodes:')
                 for n in hydrated_nodes:
                     print (f'  - {n.name} ({n.labels}, uuid: {n.uuid[-4:]})')
                 
@@ -1139,6 +1149,9 @@ class Graphiti:
                     hydrated_nodes,
                     uuid_map,
                 )
+                step_duration = time() - step_start
+                logger.info(f'[PERF]Step 4 completed in {step_duration:.2f}s')
+                step_start = time()
                 if resolved_edges:
                     logger.info(f'Step 5: {len(resolved_edges)} Resolved edges: {[(e.name, e.fact) for e in resolved_edges]}')
                 if invalidated_edges:
@@ -1187,6 +1200,9 @@ class Graphiti:
                 minutes = int(duration // 60)
                 seconds = int(duration % 60)
                 logger.info(f'Completed add_episode in {minutes} min {seconds} s')
+
+                step_duration = time() - step_start
+                logger.info(f'[PERF]Step 5 completed in {step_duration:.2f}s')
 
                 return AddEpisodeResults(
                     episode=episode,
