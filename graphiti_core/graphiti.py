@@ -451,14 +451,14 @@ class Graphiti:
         resolved_edges = edges
         invalidated_edges = []
 
-        # resolved_edges, invalidated_edges = await resolve_extracted_edges(
-        #     self.clients,
-        #     edges,
-        #     episode,
-        #     nodes,
-        #     edge_types or {},
-        #     edge_type_map,
-        # )
+        resolved_edges, invalidated_edges = await resolve_extracted_edges(
+             self.clients,
+             edges,
+             episode,
+             nodes,
+             edge_types or {},
+             edge_type_map,
+        )
 
         return resolved_edges, invalidated_edges
 
