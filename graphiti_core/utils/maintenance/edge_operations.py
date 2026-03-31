@@ -378,6 +378,11 @@ async def resolve_extracted_edges(
         result.edges for result in edge_invalidation_candidate_results
     ]
 
+    logger.info(
+        f'[EdgeResolve] valid_edges_list sizes: {[len(v) for v in valid_edges_list]}, '
+        f'related_edges sizes: {[len(r) for r in related_edges_lists]}, '
+        f'invalidation_candidates sizes: {[len(c) for c in edge_invalidation_candidates]}'
+    )
     logger.debug(
         f'Related edges lists: {[(e.name, e.uuid) for edges_lst in related_edges_lists for e in edges_lst]}'
     )
@@ -549,6 +554,9 @@ async def resolve_extracted_edge(
         The resolved edge, any duplicates, and edges to invalidate.
     """
     if len(related_edges) == 0 and len(existing_edges) == 0:
+        logger.info(
+            f'[EdgeResolve] Early return: no related_edges and no existing_edges for edge "{extracted_edge.fact}" ({extracted_edge.name})'
+        )
         return extracted_edge, [], []
 
     # Fast path: if the fact text and endpoints already exist verbatim, reuse the matching edge.
