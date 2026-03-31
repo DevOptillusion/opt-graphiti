@@ -109,9 +109,13 @@ class BaseOpenAIClient(LLMClient):
     def _get_model_for_size(self, model_size: ModelSize) -> str:
         """Get the appropriate model name based on the requested size."""
         if model_size == ModelSize.small:
-            return self.small_model or DEFAULT_SMALL_MODEL
+            model = self.small_model or DEFAULT_SMALL_MODEL
+            logger.info(f'[OpenAI] Using small_model: {model} (configured: {self.small_model}, default: {DEFAULT_SMALL_MODEL})')
+            return model
         else:
-            return self.model or DEFAULT_MODEL
+            model = self.model or DEFAULT_MODEL
+            logger.info(f'[OpenAI] Using model: {model} (configured: {self.model}, default: {DEFAULT_MODEL}, size: {model_size})')
+            return model
 
     def _handle_structured_response(self, response: Any) -> dict[str, Any]:
         """Handle structured response parsing and validation."""

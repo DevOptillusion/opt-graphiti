@@ -162,9 +162,13 @@ class GeminiClient(LLMClient):
     def _get_model_for_size(self, model_size: ModelSize) -> str:
         """Get the appropriate model name based on the requested size."""
         if model_size == ModelSize.small:
-            return self.small_model or DEFAULT_SMALL_MODEL
+            model = self.small_model or DEFAULT_SMALL_MODEL
+            logger.info(f'[Gemini] Using small_model: {model} (configured: {self.small_model}, default: {DEFAULT_SMALL_MODEL})')
+            return model
         else:
-            return self.model or DEFAULT_MODEL
+            model = self.model or DEFAULT_MODEL
+            logger.info(f'[Gemini] Using model: {model} (configured: {self.model}, default: {DEFAULT_MODEL}, size: {model_size})')
+            return model
 
     def _get_max_tokens_for_model(self, model: str) -> int:
         """Get the maximum output tokens for a specific Gemini model."""
